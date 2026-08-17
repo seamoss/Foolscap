@@ -59,8 +59,10 @@ if (!gotLock) {
     return session
   }
 
-  /* Opening a file: the tab already showing it wins, wherever it lives;
-   * otherwise it opens as a tab in the window that was last in focus. */
+  /* Opening a file at launch (command-line arguments, once the session has
+   * restored): the tab already showing it wins, wherever it lives; otherwise
+   * it opens as a tab in the window that was last in focus. Files arriving
+   * while the app is already running go through openFileFromOutside. */
   const openFileSmart = (path: string): void => {
     if (!appReady) {
       pendingOpens.push(path)
@@ -80,6 +82,105 @@ if (!gotLock) {
       target.focus()
     } else {
       boot(path)
+    }
+  }
+
+  /* Is this window on the desktop the user is actually looking at? macOS
+   * marks windows on other Spaces as occluded and Chromium reports that as
+   * document.visibilityState === 'hidden', so the answer is one question to
+   * the renderer. The reading is one-directional: 'visible' proves the
+   * window is here — a window on another Space cannot be seen — while
+   * 'hidden' is ambiguous, meaning either another desktop or merely buried
+   * behind Finder (both measured). The ambiguity costs nothing in practice
+   * because macOS activates the app and raises its windows above other
+   * apps' before delivering the open, so a same-desktop window has surfaced
+   * by the time we ask.
+   *
+   * A wedged renderer must not hang the open: no answer counts as hidden,
+   * which costs one extra window and nothing worse. */
+  const isOnActiveDesktop = async (session: WindowSession): Promise<boolean> => {
+    const win = session.window
+    if (win.isDestroyed() || win.isMinimized()) return false
+    try {
+      const state: unknown = await Promise.race([
+        win.webContents.executeJavaScript('document.visibilityState') as Promise<unknown>,
+        new Promise<unknown>((resolve) => setTimeout(() => resolve('hidden'), 250))
+      ])
+      return state === 'visible'
+    } catch {
+      return false
+    }
+  }
+
+  /* Files arriving from outside the app — a Finder double-click, `open`, a
+   * second launch carrying arguments. Nothing else can send these, so the app
+   * was in the background when they arrived and its windows may be on any
+   * desktop. They land as tabs of a window on the desktop the user is on;
+   * only when no window is here does a new one get made, which macOS places
+   * on the active desktop. Focusing a window that turned out to be elsewhere
+   * is the one thing to avoid — that drags the user's screen with it.
+   *
+   * A path already open keeps its existing tab — the same file in two windows
+   * would mean two buffers and two watchers over one file. Only when every
+   * requested path is already open does a window get focused, because then
+   * there is nothing new to show and that tab is the whole answer.
+   *
+   * Finder sends one open-file event per selected file, so the batch waits a
+   * beat and lands together rather than one window or tab at a time. */
+  const externalQueue: string[] = []
+  let externalTimer: NodeJS.Timeout | undefined
+
+  /* Long enough to gather one Finder multi-select AND to let the occlusion
+   * state settle after macOS activates the app — asking too early reads a
+   * still-buried window as hidden and makes a needless window. Short enough
+   * that a lone file still opens instantly. */
+  const EXTERNAL_BATCH_MS = 120
+
+  const flushExternalOpens = async (): Promise<void> => {
+    externalTimer = undefined
+    const paths = [...new Set(externalQueue.splice(0))]
+    const fresh: string[] = []
+    let holdingOpen: WindowSession | null = null
+    for (const path of paths) {
+      const holder = [...sessions.values()].find((s) => s.tabWithPath(path) !== null)
+      const tab = holder?.tabWithPath(path)
+      if (!holder || !tab) {
+        fresh.push(path)
+        continue
+      }
+      // Surface it in the window that has it, but don't pull focus there.
+      holder.activate(tab.docId)
+      holdingOpen ??= holder
+    }
+    if (fresh.length === 0) {
+      holdingOpen?.focus()
+      return
+    }
+    // The window last in focus gets first refusal; the rest are asked in
+    // parallel so one wedged renderer can't hold up the others.
+    const preferred = sessions.get(lastFocusedWcId)
+    const ordered = preferred
+      ? [preferred, ...[...sessions.values()].filter((s) => s !== preferred)]
+      : [...sessions.values()]
+    const here = await Promise.all(ordered.map((s) => isOnActiveDesktop(s)))
+    const target = ordered.find((_, i) => here[i] === true) ?? null
+    if (target) {
+      for (const path of fresh) void target.openPath(path)
+      target.focus()
+      return
+    }
+    const made = boot()
+    for (const path of fresh) void made.openPath(path)
+  }
+
+  const openFileFromOutside = (path: string): void => {
+    if (!appReady) {
+      pendingOpens.push(path)
+      return
+    }
+    externalQueue.push(path)
+    if (externalTimer === undefined) {
+      externalTimer = setTimeout(() => void flushExternalOpens(), EXTERNAL_BATCH_MS)
     }
   }
 
@@ -122,7 +223,7 @@ if (!gotLock) {
 
   app.on('open-file', (e, path) => {
     e.preventDefault()
-    openFileSmart(path)
+    openFileFromOutside(path)
   })
 
   app.on('second-instance', (_e, argv, cwd) => {
@@ -134,7 +235,7 @@ if (!gotLock) {
       else boot()
       return
     }
-    for (const path of paths) openFileSmart(path)
+    for (const path of paths) openFileFromOutside(path)
   })
 
   /* ⌘Q quits silently: the session — open windows, their tabs, unsaved

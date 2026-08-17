@@ -61,9 +61,14 @@
   --gutter-width: 2rem;
 
   /* ---- Chrome ---- */
-  --titlebar-height: 32px;
-  /* Tab strip's left edge: clear of the macOS traffic lights. */
-  --tabbar-inset: 86px;
+  /* Deeper than the traffic lights need, deliberately: macOS parks the
+   * hiddenInset buttons low in the bar, so a bar sized to them leaves tabs
+   * and title pressed against the content below. Everything that sits under
+   * the chrome keys off this one value. */
+  --titlebar-height: 44px;
+  /* Tab strip's left edge: clear of the macOS traffic lights, with room to
+   * breathe — the buttons end around 74px. */
+  --tabbar-inset: 100px;
   --cursor-width: 2px;
   --radius-ui: 6px;
   --radius-inline: 4px;
