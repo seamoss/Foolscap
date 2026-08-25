@@ -79,7 +79,7 @@ export class Preview {
   private resize: ColumnResize | null = null
 
   constructor(
-    private readonly onEdit: (pos: number) => void,
+    private readonly onEdit: (pos: number, screenTop?: number) => void,
     private readonly applyEdit?: (from: number, to: number, insert: string) => string | null
   ) {
     this.el = document.createElement('div')
@@ -94,7 +94,10 @@ export class Preview {
     this.el.addEventListener('dblclick', (event) => {
       const target = event.target instanceof Element ? event.target : null
       const holder = target?.closest<HTMLElement>('[data-pos]')
-      this.onEdit(holder ? Number(holder.dataset['pos']) : 0)
+      // The element's viewport top rides along so the editor can land its
+      // first line at the same height — the page holds still under the click.
+      if (holder) this.onEdit(Number(holder.dataset['pos']), holder.getBoundingClientRect().top)
+      else this.onEdit(0)
     })
 
     this.el.addEventListener('click', (event) => {
@@ -168,18 +171,22 @@ export class Preview {
     this.visible = false
   }
 
-  /* Source position of the content at the pane's viewport center, so
-   * leaving preview (⌘E, Escape) lands the editor where the reader was —
-   * not wherever the editor last sat. Read before hide(): a hidden pane
-   * has no geometry. */
-  visiblePos(): number {
+  /* Source position and viewport top of the content at the pane's center,
+   * so leaving preview (⌘E, Escape) lands the editor where the reader was —
+   * same block, same height on screen — not wherever the editor last sat.
+   * Read before hide(): a hidden pane has no geometry. */
+  visibleAnchor(): { pos: number; top: number } | null {
     const center = this.el.getBoundingClientRect().top + this.el.clientHeight / 2
     const candidates = [...this.el.querySelectorAll<HTMLElement>('[data-pos]')]
-    const spans = candidates
-      .map((c) => c.getBoundingClientRect())
-      .map((r) => ({ top: r.top, bottom: r.bottom }))
-    const best = candidates[nearestSpanIndex(spans, center)]
-    return best ? Number(best.dataset['pos']) : 0
+    const rects = candidates.map((c) => c.getBoundingClientRect())
+    const best = nearestSpanIndex(
+      rects.map((r) => ({ top: r.top, bottom: r.bottom })),
+      center
+    )
+    const el = candidates[best]
+    const rect = rects[best]
+    if (!el || !rect) return null
+    return { pos: Number(el.dataset['pos']), top: rect.top }
   }
 
   /* ---- table columns: proportioned by the model, draggable at edges ---- */
