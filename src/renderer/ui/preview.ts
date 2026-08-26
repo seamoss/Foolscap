@@ -24,6 +24,83 @@ export function bestCoveringIndex(positions: readonly number[], pos: number): nu
   return best
 }
 
+const isWordChar = (ch: string | undefined): boolean =>
+  ch !== undefined && /[\p{L}\p{N}_']/u.test(ch)
+
+/* Exact source offset of a click inside a rendered block. Rendered text and
+ * markdown source disagree (mark syntax, link targets, escapes), so instead
+ * of arithmetic the clicked word is re-found: expand the click to a word,
+ * count which whole-word occurrence of it precedes the click in the rendered
+ * text, and locate the same occurrence in the source after the block's
+ * data-pos stamp. The search window is bounded so a word this block only has
+ * inside syntax (e.g. split by marks: `win**ning**`) fails to a null — the
+ * caller falls back to the block start — rather than matching text pages
+ * away. */
+export function sourceOffsetAt(
+  source: string,
+  blockPos: number,
+  renderedText: string,
+  renderedOffset: number
+): number | null {
+  let start = renderedOffset
+  let end = renderedOffset
+  while (start > 0 && isWordChar(renderedText[start - 1])) start--
+  while (end < renderedText.length && isWordChar(renderedText[end])) end++
+  if (start === end) return null
+  const word = renderedText.slice(start, end)
+  const wholeWordAt = (text: string, i: number): boolean =>
+    !isWordChar(text[i - 1]) && !isWordChar(text[i + word.length])
+
+  let skip = 0
+  for (let i = renderedText.indexOf(word); i !== -1 && i < start; i = renderedText.indexOf(word, i + 1)) {
+    if (wholeWordAt(renderedText, i)) skip++
+  }
+  const window = source.slice(blockPos, blockPos + renderedText.length * 2 + 500)
+  for (let i = window.indexOf(word); i !== -1; i = window.indexOf(word, i + 1)) {
+    if (!wholeWordAt(window, i)) continue
+    if (skip === 0) return blockPos + i + (renderedOffset - start)
+    skip--
+  }
+  return null
+}
+
+/* Caret position under a pointer event, constrained to an element.
+ * caretPositionFromPoint is the standard; caretRangeFromPoint the WebKit
+ * legacy — Chromium has both, but feature-detect anyway. */
+function caretAt(event: MouseEvent, within: Element): { node: Node; offset: number } | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?(x: number, y: number): { offsetNode: Node; offset: number } | null
+    caretRangeFromPoint?(x: number, y: number): Range | null
+  }
+  const pos = doc.caretPositionFromPoint?.(event.clientX, event.clientY)
+  if (pos && within.contains(pos.offsetNode)) return { node: pos.offsetNode, offset: pos.offset }
+  const range = doc.caretRangeFromPoint?.(event.clientX, event.clientY)
+  if (range && within.contains(range.startContainer)) {
+    return { node: range.startContainer, offset: range.startOffset }
+  }
+  return null
+}
+
+/* The caret's offset into the holder's rendered text — Range.toString()
+ * concatenates the same text nodes textContent does. */
+function renderedOffsetOf(holder: Element, caret: { node: Node; offset: number }): number {
+  const range = document.createRange()
+  range.selectNodeContents(holder)
+  range.setEnd(caret.node, caret.offset)
+  return range.toString().length
+}
+
+/* Viewport top of the text line the caret sits on. A collapsed range's rect
+ * is the caret's own line box; some positions (element boundaries) have no
+ * rect — callers fall back to the block. */
+function caretLineTop(caret: { node: Node; offset: number }): number | null {
+  const range = document.createRange()
+  range.setStart(caret.node, caret.offset)
+  range.setEnd(caret.node, caret.offset)
+  const rect = range.getClientRects()[0]
+  return rect !== undefined && rect.height > 0 ? rect.top : null
+}
+
 /* Index of the span covering (or nearest to) a target line. Ties go to the
  * later span: document order puts children after their parents, so nested
  * elements resolve to the most specific one under the line. */
@@ -79,7 +156,7 @@ export class Preview {
   private resize: ColumnResize | null = null
 
   constructor(
-    private readonly onEdit: (pos: number) => void,
+    private readonly onEdit: (pos: number, screenTop?: number) => void,
     private readonly applyEdit?: (from: number, to: number, insert: string) => string | null
   ) {
     this.el = document.createElement('div')
@@ -94,7 +171,30 @@ export class Preview {
     this.el.addEventListener('dblclick', (event) => {
       const target = event.target instanceof Element ? event.target : null
       const holder = target?.closest<HTMLElement>('[data-pos]')
-      this.onEdit(holder ? Number(holder.dataset['pos']) : 0)
+      if (!holder) {
+        this.onEdit(0)
+        return
+      }
+      // The viewport top of what was clicked rides along so the editor can
+      // land the cursor's line at the same height — the page holds still
+      // under the click. When the click resolves to an exact source offset,
+      // that's the clicked line's top; on fallback, the block's.
+      const blockPos = Number(holder.dataset['pos'])
+      const caret = caretAt(event, holder)
+      const refined =
+        caret === null
+          ? null
+          : sourceOffsetAt(
+              this.markdown,
+              blockPos,
+              holder.textContent ?? '',
+              renderedOffsetOf(holder, caret)
+            )
+      if (refined === null || caret === null) {
+        this.onEdit(blockPos, holder.getBoundingClientRect().top)
+      } else {
+        this.onEdit(refined, caretLineTop(caret) ?? holder.getBoundingClientRect().top)
+      }
     })
 
     this.el.addEventListener('click', (event) => {
@@ -168,18 +268,22 @@ export class Preview {
     this.visible = false
   }
 
-  /* Source position of the content at the pane's viewport center, so
-   * leaving preview (⌘E, Escape) lands the editor where the reader was —
-   * not wherever the editor last sat. Read before hide(): a hidden pane
-   * has no geometry. */
-  visiblePos(): number {
+  /* Source position and viewport top of the content at the pane's center,
+   * so leaving preview (⌘E, Escape) lands the editor where the reader was —
+   * same block, same height on screen — not wherever the editor last sat.
+   * Read before hide(): a hidden pane has no geometry. */
+  visibleAnchor(): { pos: number; top: number } | null {
     const center = this.el.getBoundingClientRect().top + this.el.clientHeight / 2
     const candidates = [...this.el.querySelectorAll<HTMLElement>('[data-pos]')]
-    const spans = candidates
-      .map((c) => c.getBoundingClientRect())
-      .map((r) => ({ top: r.top, bottom: r.bottom }))
-    const best = candidates[nearestSpanIndex(spans, center)]
-    return best ? Number(best.dataset['pos']) : 0
+    const rects = candidates.map((c) => c.getBoundingClientRect())
+    const best = nearestSpanIndex(
+      rects.map((r) => ({ top: r.top, bottom: r.bottom })),
+      center
+    )
+    const el = candidates[best]
+    const rect = rects[best]
+    if (!el || !rect) return null
+    return { pos: Number(el.dataset['pos']), top: rect.top }
   }
 
   /* ---- table columns: proportioned by the model, draggable at edges ---- */
