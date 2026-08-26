@@ -223,6 +223,14 @@ function toggleHelp(): void {
   }
 }
 
+/* Find is a CodeMirror panel, so it can only exist in the editor: reaching
+ * it from preview means leaving preview. Help overlays both; close it too. */
+function openFind(): void {
+  if (helpPreview.visible) toggleHelp()
+  if (preview.visible || previewEntering) exitPreview()
+  openSearchPanel(editor.view)
+}
+
 function loadCustomTheme(): void {
   void window.foolscap.loadCustomTheme().then((css) => {
     if (css === null) return
@@ -291,15 +299,7 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'open', title: 'Open…', hint: `${mod}O`, run: () => window.foolscap.exec('file-open') },
   { id: 'save', title: 'Save', hint: `${mod}S`, run: () => window.foolscap.exec('file-save') },
   { id: 'save-as', title: 'Save As…', run: () => window.foolscap.exec('file-save-as') },
-  {
-    id: 'find',
-    title: 'Find & Replace',
-    hint: `${mod}F`,
-    run: () => {
-      if (preview.visible || previewEntering) exitPreview()
-      openSearchPanel(editor.view)
-    }
-  },
+  { id: 'find', title: 'Find & Replace', hint: `${mod}F`, run: () => openFind() },
   { id: 'preview', title: 'Toggle Preview', hint: `${mod}E`, run: () => togglePreview() },
   { id: 'format-bold', title: 'Format: Bold', hint: `${mod}B`, run: () => formatInEditor(toggleBold) },
   { id: 'format-italic', title: 'Format: Italic', hint: `${mod}I`, run: () => formatInEditor(toggleItalic) },
@@ -395,6 +395,11 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault()
     if (helpPreview.visible) toggleHelp()
     else togglePreview()
+  } else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+    // Redundant with CodeMirror's Mod-f while the editor has focus — this
+    // catches ⌘F everywhere else (preview, help, outline).
+    e.preventDefault()
+    openFind()
   } else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === ',') {
     e.preventDefault()
     settings.toggle()
