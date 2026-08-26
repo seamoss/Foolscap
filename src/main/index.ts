@@ -192,7 +192,7 @@ if (!gotLock) {
     const target = boot()
     // Near the drop point, clamped by the OS to something visible.
     target.window.setPosition(Math.round(x - 80), Math.round(y - 20))
-    target.adoptTab(extracted.tab, extracted.content, extracted.dirty)
+    target.adoptTab(extracted.tab, extracted.content, extracted.dirty, extracted.history)
   }
 
   const actions: MenuActions = {

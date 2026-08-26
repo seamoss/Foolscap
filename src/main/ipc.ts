@@ -2,16 +2,16 @@ import { dialog, ipcMain, shell } from 'electron'
 import { DROPPABLE_FILE, IPC, type AppCommand, type ConflictChoice } from '../shared/types'
 import { readTextFile } from './files'
 import type { MenuActions } from './menu'
-import type { WindowSession } from './session'
+import { setAutosaveEnabled, type WindowSession } from './session'
 import { checkNow } from './updater'
 
 export const OPENABLE_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
 
 /* Renderer → main channels, routed to the sender's window session — with
  * several windows open, e.sender.id is the only truth about which window is
- * talking, and the docId argument picks the tab. IPC.content is
- * intentionally absent: it is a reply channel consumed (sender- and
- * docId-filtered) by TabSession.getRendererContent(). */
+ * talking, and the docId argument picks the tab. IPC.content and IPC.state
+ * are intentionally absent: they are reply channels consumed (sender- and
+ * docId-filtered) by TabSession's renderer roundtrips. */
 export function registerIpc(
   sessionFor: (webContentsId: number) => WindowSession | null,
   actions: MenuActions,
@@ -22,6 +22,14 @@ export function registerIpc(
   )
   ipcMain.on(IPC.conflictResolve, (e, docId: number, choice: ConflictChoice) =>
     sessionFor(e.sender.id)?.tab(docId)?.resolveConflict(choice)
+  )
+  ipcMain.on(IPC.autosave, (e, docId: number) => void sessionFor(e.sender.id)?.tab(docId)?.autosave())
+  ipcMain.on(IPC.autosaveEnabled, (_e, on: boolean) => setAutosaveEnabled(on === true))
+  ipcMain.handle(IPC.historyList, (e, docId: number) =>
+    sessionFor(e.sender.id)?.tab(docId)?.listHistory() ?? []
+  )
+  ipcMain.handle(IPC.historyRead, (e, docId: number, id: string) =>
+    typeof id === 'string' ? (sessionFor(e.sender.id)?.tab(docId)?.readHistory(id) ?? null) : null
   )
   ipcMain.on(IPC.tabActivate, (e, docId: number) => sessionFor(e.sender.id)?.activate(docId))
   ipcMain.on(IPC.tabClose, (e, docId: number) => void sessionFor(e.sender.id)?.closeTab(docId))

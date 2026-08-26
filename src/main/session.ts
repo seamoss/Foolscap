@@ -6,6 +6,7 @@ import {
   NEW_DOC_TEMPLATE,
   type ConflictChoice,
   type DocPayload,
+  type HistoryEntry,
   type LoadReason,
   type SavedPayload,
   type TabsState
@@ -13,6 +14,7 @@ import {
 import { renderExportHtml } from './export/html'
 import { printDocument, renderPdf } from './export/pdf'
 import { atomicWriteFile, readTextFile, timestampName, watchFile } from './files'
+import { docKey, listSnapshots, pruneSnapshots, readSnapshot, writeSnapshot } from './history-store'
 import { acquireAccess, ensureFolderAccess, rememberBookmark } from './scoped'
 import type { SessionEntry, WindowEntry } from './session-store'
 import { existsSync } from 'node:fs'
@@ -27,6 +29,21 @@ const MD_FILTERS = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdx'] }]
 
 /* App-unique tab identity; ids never recycle within a run. */
 let nextDocId = 1
+
+/* Renderer-owned autosave setting, mirrored here so close guards and the
+ * quit flush know a dirty file-backed tab can be quietly saved instead of
+ * prompted. All windows share one localStorage, so the last report is the
+ * app-wide truth. Defaults on, matching the renderer. */
+let autosaveEnabled = true
+
+export function setAutosaveEnabled(on: boolean): void {
+  autosaveEnabled = on
+}
+
+/* A cadence, not a mirror: autosave may write the file every couple of
+ * seconds, but a browsable history wants meaningful versions — at most one
+ * per stretch of editing, plus the forced ones (close, save-as). */
+const SNAPSHOT_EVERY_MS = 5 * 60 * 1000
 
 /* ---- TabSession: one document ----
  *
@@ -47,6 +64,16 @@ export class TabSession {
   private watcher: FSWatcher | null = null
   /* mas: scoped-resource stopper for the current document; held while open. */
   private stopScopedAccess: (() => void) | null = null
+  /* Version-history bookkeeping: whether this session has snapshotted the
+   * pre-edit disk state (the file as the user found it), and when the last
+   * cadence snapshot landed. */
+  private baselineSnapshotted = false
+  private lastSnapshotAt = 0
+  /* One failure toast per streak — a broken disk must not toast per debounce. */
+  private autosaveFailureNotified = false
+  /* Saves serialize: an autosave landing while a manual save's dialog is up
+   * (or vice versa) waits its turn instead of racing the write. */
+  private saveChain: Promise<unknown> = Promise.resolve()
 
   constructor(private host: WindowSession) {}
 
@@ -79,12 +106,23 @@ export class TabSession {
   /* ---- session persistence ---- */
 
   /* Snapshot for the session store: clean documents record only their path;
-   * dirty ones carry the buffer. Untouched untitled tabs record nothing. */
+   * dirty ones carry the buffer. Untouched untitled tabs record nothing.
+   * Undo history rides along either way, so ⌘Z survives a quit. */
   async captureState(): Promise<SessionEntry | null> {
     if (this.isEmpty) return null
-    if (!this.dirty) return { path: this.path, dirty: false, content: null }
-    const content = await this.getRendererContent(3000)
-    return { path: this.path, dirty: true, content }
+    // Quit must not leave the file behind the buffer when autosave is on.
+    if (this.dirty && this.path && autosaveEnabled) await this.autosave()
+    if (!this.dirty) {
+      let history: string | null = null
+      try {
+        history = (await this.getRendererState(3000)).history
+      } catch {
+        // a clean document can restore without its undo stack
+      }
+      return { path: this.path, dirty: false, content: null, history }
+    }
+    const state = await this.getRendererState(3000)
+    return { path: this.path, dirty: true, content: state.content, history: state.history }
   }
 
   async restore(entry: SessionEntry): Promise<void> {
@@ -102,7 +140,7 @@ export class TabSession {
     this.lastSynced = disk
     this.rewatch()
     const content = entry.dirty && entry.content !== null ? entry.content : (disk ?? '')
-    this.load(content, entry.dirty)
+    this.load(content, entry.dirty, 'open', entry.history ?? null)
     if (entry.path) app.addRecentDocument(entry.path)
   }
 
@@ -140,15 +178,32 @@ export class TabSession {
     this.load(NEW_DOC_TEMPLATE)
   }
 
-  /* A detached tab arriving in its new window, buffer carried over. */
-  loadTransferred(content: string, dirty: boolean): void {
+  /* A detached tab arriving in its new window, buffer and undo history
+   * carried over. */
+  loadTransferred(content: string, dirty: boolean, history: string | null): void {
     this.dirty = dirty
-    this.load(content, dirty, 'transfer')
+    this.load(content, dirty, 'transfer', history)
   }
 
   /* Save the buffer. Returns true on success, false if the user cancelled a
    * save-as dialog or the write failed. */
-  async save(saveAs = false): Promise<boolean> {
+  save(saveAs = false): Promise<boolean> {
+    return this.enqueueSave(() => this.saveNow(saveAs))
+  }
+
+  /* The quiet save behind autosave: no dialogs, no prompts, no recents
+   * churn. Resolves true when the buffer ends up safely on disk. */
+  autosave(): Promise<boolean> {
+    return this.enqueueSave(() => this.autosaveNow())
+  }
+
+  private enqueueSave<T>(op: () => Promise<T>): Promise<T> {
+    const run = this.saveChain.then(op)
+    this.saveChain = run.catch(() => undefined)
+    return run
+  }
+
+  private async saveNow(saveAs: boolean): Promise<boolean> {
     let target = this.path
     if (saveAs || !target) {
       const result = await dialog.showSaveDialog(this.win, {
@@ -178,6 +233,8 @@ export class TabSession {
     ) {
       return false
     }
+    const pathChanged = target !== this.path
+    const previousDisk = this.lastSynced
     this.unwatch()
     try {
       await atomicWriteFile(target, content)
@@ -186,6 +243,7 @@ export class TabSession {
       this.rewatch()
       return false
     }
+    this.autosaveFailureNotified = false
     this.path = target
     this.lastSynced = content
     this.rewatch()
@@ -194,7 +252,103 @@ export class TabSession {
     const saved: SavedPayload = { docId: this.docId, path: target, dir: dirname(target) }
     this.win.webContents.send(IPC.saved, saved)
     app.addRecentDocument(target)
+    if (pathChanged) {
+      // A new path starts a new history: no baseline (there is no prior
+      // state of THIS file to protect), and the first save snapshots now.
+      this.baselineSnapshotted = true
+      this.lastSnapshotAt = 0
+      await this.recordHistory(null, content)
+    } else {
+      await this.recordHistory(previousDisk, content)
+    }
     return true
+  }
+
+  /* Autosave's write: skips whenever writing could do harm — an unresolved
+   * external change must not be clobbered, and no dialog may interrupt
+   * typing (which is why this path never asks for sandbox folder access;
+   * without it the write just fails into the one-per-streak toast). */
+  private async autosaveNow(): Promise<boolean> {
+    if (!this.dirty) return true
+    const target = this.path
+    if (!target) return false
+    if (this.pendingDiskContent !== null) return false
+    if (this.win.isDestroyed()) return false
+    let content: string
+    try {
+      content = await this.getRendererContent(3000)
+    } catch {
+      return false
+    }
+    const previousDisk = this.lastSynced
+    this.unwatch()
+    try {
+      await atomicWriteFile(target, content)
+    } catch {
+      this.rewatch()
+      // The buffer keeps the changes; the user hears about it once.
+      if (!this.autosaveFailureNotified && !this.win.isDestroyed()) {
+        this.autosaveFailureNotified = true
+        this.win.webContents.send(IPC.autosaveFailed, this.docId)
+      }
+      return false
+    }
+    this.autosaveFailureNotified = false
+    this.lastSynced = content
+    this.rewatch()
+    this.dirty = false
+    this.host.onTabChanged()
+    if (!this.win.isDestroyed()) {
+      const saved: SavedPayload = { docId: this.docId, path: target, dir: dirname(target) }
+      this.win.webContents.send(IPC.saved, saved)
+    }
+    await this.recordHistory(previousDisk, content)
+    return true
+  }
+
+  /* Version history, best effort — never a reason a save fails. The
+   * baseline snapshot preserves the disk state this session started
+   * overwriting (so autosave can never silently destroy the file as the
+   * user found it); after that, cadence snapshots of what was saved. The
+   * final state of a session needs no snapshot: it lives in the file, and
+   * becomes the next session's baseline the moment it's edited again. */
+  private async recordHistory(previousDisk: string | null, saved: string): Promise<void> {
+    const path = this.path
+    if (!path) return
+    try {
+      const dir = this.historyDir(path)
+      if (!this.baselineSnapshotted) {
+        this.baselineSnapshotted = true
+        if (previousDisk !== null && previousDisk !== saved) {
+          await writeSnapshot(dir, previousDisk, path, Date.now() - 1)
+        }
+      }
+      const now = Date.now()
+      if (now - this.lastSnapshotAt >= SNAPSHOT_EVERY_MS) {
+        if (await writeSnapshot(dir, saved, path, now)) this.lastSnapshotAt = now
+        await pruneSnapshots(dir, now)
+      }
+    } catch {
+      // losing one snapshot is not worth interrupting anyone over
+    }
+  }
+
+  private historyDir(path: string): string {
+    return join(app.getPath('userData'), 'history', docKey(path))
+  }
+
+  async listHistory(): Promise<HistoryEntry[]> {
+    if (!this.path) return []
+    try {
+      return await listSnapshots(this.historyDir(this.path))
+    } catch {
+      return []
+    }
+  }
+
+  readHistory(id: string): Promise<string | null> {
+    if (!this.path) return Promise.resolve(null)
+    return readSnapshot(this.historyDir(this.path), id)
   }
 
   async exportHtml(): Promise<void> {
@@ -293,6 +447,10 @@ export class TabSession {
    * runs this per dirty tab when closing. */
   async guardUnsaved(): Promise<boolean> {
     if (!this.dirty) return true
+    // With autosave on, a file-backed tab already knows the answer the
+    // prompt would ask for; only failure (a pending conflict, a write
+    // error) falls through to asking.
+    if (autosaveEnabled && this.path && (await this.autosave())) return true
     const { response } = await dialog.showMessageBox(this.win, {
       type: 'warning',
       message: `Do you want to save the changes you made to “${this.name()}”?`,
@@ -323,7 +481,12 @@ export class TabSession {
     this.stopScopedAccess = await acquireAccess(path)
   }
 
-  private load(content: string, dirty = false, reason: LoadReason = 'open'): void {
+  private load(
+    content: string,
+    dirty = false,
+    reason: LoadReason = 'open',
+    history: string | null = null
+  ): void {
     if (this.win.isDestroyed()) return
     this.dirty = dirty
     this.pendingDiskContent = null
@@ -334,7 +497,8 @@ export class TabSession {
       dir: this.path ? dirname(this.path) : null,
       content,
       dirty,
-      reason
+      reason,
+      history
     }
     this.win.webContents.send(IPC.load, payload)
   }
@@ -344,38 +508,67 @@ export class TabSession {
    * crashed or destroyed renderer rejects; timeoutMs (the quit path) bounds
    * a merely hung one. */
   getRendererContent(timeoutMs?: number): Promise<string> {
+    return this.rendererRoundtrip(
+      IPC.requestContent,
+      IPC.content,
+      (args) => (typeof args[0] === 'string' ? args[0] : ''),
+      timeoutMs
+    )
+  }
+
+  /* Content plus serialized undo history — the quit-persistence and
+   * tab-transfer payload. Saves stick to getRendererContent: serializing an
+   * undo stack per keystroke-debounce would be pure waste. */
+  getRendererState(timeoutMs?: number): Promise<{ content: string; history: string | null }> {
+    return this.rendererRoundtrip(
+      IPC.requestState,
+      IPC.state,
+      (args) => ({
+        content: typeof args[0] === 'string' ? args[0] : '',
+        history: typeof args[1] === 'string' ? args[1] : null
+      }),
+      timeoutMs
+    )
+  }
+
+  private rendererRoundtrip<T>(
+    requestChannel: string,
+    replyChannel: string,
+    pick: (args: unknown[]) => T,
+    timeoutMs?: number
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       const wc = this.win.webContents
       let timer: NodeJS.Timeout | undefined
       const cleanup = (): void => {
-        ipcMain.off(IPC.content, handler)
+        ipcMain.off(replyChannel, handler)
         wc.off('render-process-gone', onGone)
         wc.off('destroyed', onGone)
         clearTimeout(timer)
       }
       // Filter by sender AND docId: with several windows and tabs open,
       // another document's reply must never satisfy this request.
-      const handler = (e: Electron.IpcMainEvent, docId: number, content: string): void => {
+      const handler = (e: Electron.IpcMainEvent, docId: number, ...args: unknown[]): void => {
         if (e.sender.id === wc.id && docId === this.docId) {
           cleanup()
-          resolve(content)
+          resolve(pick(args))
         }
       }
       const onGone = (): void => {
         cleanup()
-        reject(new Error('renderer gone before replying with its content'))
+        reject(new Error('renderer gone before replying'))
       }
-      ipcMain.on(IPC.content, handler)
+      ipcMain.on(replyChannel, handler)
       wc.on('render-process-gone', onGone)
       wc.on('destroyed', onGone)
       if (timeoutMs !== undefined) {
         timer = setTimeout(() => {
           cleanup()
-          reject(new Error('renderer did not reply with its content'))
+          reject(new Error('renderer did not reply'))
         }, timeoutMs)
       }
       try {
-        wc.send(IPC.requestContent, this.docId)
+        wc.send(requestChannel, this.docId)
       } catch (err) {
         cleanup()
         reject(err instanceof Error ? err : new Error(String(err)))
@@ -431,7 +624,12 @@ export class WindowSession {
   private pendingPaths: string[] = []
   private pendingRestore: WindowEntry | null = null
   private pendingHelp = false
-  private pendingAdopt: { tab: TabSession; content: string; dirty: boolean } | null = null
+  private pendingAdopt: {
+    tab: TabSession
+    content: string
+    dirty: boolean
+    history: string | null
+  } | null = null
 
   constructor(
     readonly window: BrowserWindow,
@@ -448,7 +646,7 @@ export class WindowSession {
       if (this.pendingAdopt) {
         const adopt = this.pendingAdopt
         this.pendingAdopt = null
-        this.finishAdopt(adopt.tab, adopt.content, adopt.dirty)
+        this.finishAdopt(adopt.tab, adopt.content, adopt.dirty, adopt.history)
       }
       for (const path of this.pendingPaths.splice(0)) void this.openPath(path)
       // A window that arrived with nothing to show opens an untitled tab.
@@ -605,37 +803,42 @@ export class WindowSession {
     this.broadcast()
   }
 
-  /* Drag-out, source side: pull the buffer (edits travel with the tab),
-   * remove the tab from this strip, and hand the session over. Null when
-   * the tab can't leave (sole tab, or a wedged renderer). */
-  async extractTab(docId: number): Promise<{ tab: TabSession; content: string; dirty: boolean } | null> {
+  /* Drag-out, source side: pull the buffer (edits and undo history travel
+   * with the tab), remove the tab from this strip, and hand the session
+   * over. Null when the tab can't leave (sole tab, or a wedged renderer). */
+  async extractTab(
+    docId: number
+  ): Promise<{ tab: TabSession; content: string; dirty: boolean; history: string | null } | null> {
     const tab = this.tab(docId)
     if (!tab || this.tabs.length <= 1) return null
     let content: string
+    let history: string | null
     try {
-      content = await tab.getRendererContent(2000)
+      const state = await tab.getRendererState(2000)
+      content = state.content
+      history = state.history
     } catch {
       return null
     }
     const dirty = tab.isDirty
     this.removeTab(tab)
-    return { tab, content, dirty }
+    return { tab, content, dirty, history }
   }
 
   /* Drag-out, target side: the same TabSession, re-homed. */
-  adoptTab(tab: TabSession, content: string, dirty: boolean): void {
+  adoptTab(tab: TabSession, content: string, dirty: boolean, history: string | null): void {
     if (!this.ready) {
-      this.pendingAdopt = { tab, content, dirty }
+      this.pendingAdopt = { tab, content, dirty, history }
       return
     }
-    this.finishAdopt(tab, content, dirty)
+    this.finishAdopt(tab, content, dirty, history)
   }
 
-  private finishAdopt(tab: TabSession, content: string, dirty: boolean): void {
+  private finishAdopt(tab: TabSession, content: string, dirty: boolean, history: string | null): void {
     tab.rehost(this)
     this.tabs.push(tab)
     this.activeIndex = this.tabs.length - 1
-    tab.loadTransferred(content, dirty)
+    tab.loadTransferred(content, dirty, history)
     this.broadcast()
   }
 

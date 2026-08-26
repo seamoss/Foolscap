@@ -19,6 +19,21 @@ export interface DocPayload {
    * document arrives already-dirty and opens in edit mode. */
   dirty: boolean
   reason: LoadReason
+  /* Serialized CodeMirror undo history (an opaque JSON string) riding along
+   * on session restores and tab transfers, so ⌘Z survives both. Absent on
+   * plain opens. */
+  history?: string | null
+}
+
+/* One entry in a document's version history — a full snapshot in userData,
+ * recorded around saves (see src/main/history-store.ts). */
+export interface HistoryEntry {
+  /* Snapshot file name; the token historyRead expects back. */
+  id: string
+  /* Epoch ms of the snapshot. */
+  time: number
+  /* Bytes, for the browser's size whisper. */
+  size: number
 }
 
 /* What a new, untitled document opens as: a heading ready to be titled,
@@ -75,6 +90,7 @@ export type MenuCommand =
   | 'format-strike'
   | 'format-code'
   | 'format-link'
+  | 'browse-versions'
 
 /* A new version, downloaded and verified by src/main/updater.ts — ready to
  * install the moment the app restarts. */
@@ -114,6 +130,11 @@ export const IPC = {
   // renderer → main
   dirty: 'doc:dirty',
   content: 'doc:content',
+  state: 'doc:state',
+  autosave: 'doc:autosave',
+  autosaveEnabled: 'app:autosave-enabled',
+  historyList: 'history:list',
+  historyRead: 'history:read',
   conflictResolve: 'doc:conflict-resolve',
   openExternal: 'link:open-external',
   exec: 'app:exec',
@@ -129,6 +150,8 @@ export const IPC = {
   load: 'doc:load',
   saved: 'doc:saved',
   requestContent: 'doc:request-content',
+  requestState: 'doc:request-state',
+  autosaveFailed: 'doc:autosave-failed',
   conflict: 'doc:conflict',
   tabsState: 'tabs:state',
   updateReady: 'app:update-ready',
@@ -143,6 +166,18 @@ export interface FoolscapApi {
   readonly platform: string
   setDirty(docId: number, dirty: boolean): void
   sendContent(docId: number, content: string): void
+  /* Reply to requestState: the buffer plus its serialized undo history
+   * (null when serialization failed or was oversized). */
+  sendState(docId: number, content: string, history: string | null): void
+  /* A quiet save of a file-backed dirty buffer — the debounced edge of
+   * autosave. Main ignores it when there's nothing safe to do. */
+  autosave(docId: number): void
+  /* Mirror of the renderer-owned autosave setting, so main's close guards
+   * know a dirty file-backed tab can be flushed instead of prompted. */
+  setAutosaveEnabled(on: boolean): void
+  /* Version history of the tab's document; empty for untitled tabs. */
+  historyList(docId: number): Promise<HistoryEntry[]>
+  historyRead(docId: number, id: string): Promise<string | null>
   resolveConflict(docId: number, choice: ConflictChoice): void
   openExternal(url: string): void
   exec(command: AppCommand): void
@@ -164,6 +199,9 @@ export interface FoolscapApi {
   onCommand(cb: (command: MenuCommand) => void): void
   onSaved(cb: (saved: SavedPayload) => void): void
   onRequestContent(cb: (docId: number) => void): void
+  onRequestState(cb: (docId: number) => void): void
+  /* An autosave write failed — one toast per streak of failures. */
+  onAutosaveFailed(cb: (docId: number) => void): void
   onConflict(cb: (docId: number) => void): void
   onUpdateReady(cb: (update: UpdatePayload) => void): void
   /* First launch after an update installed — the victory-lap toast. */

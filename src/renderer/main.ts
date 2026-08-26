@@ -44,6 +44,7 @@ import {
 } from './editor/format-commands'
 import { createEditor } from './editor/setup'
 import helpMd from './help.md?raw'
+import { AutosaveScheduler, autosaveEnabled, setAutosaveEnabled } from './ui/autosave'
 import { classifyDrop } from './ui/drop'
 import {
   adjustTextSize,
@@ -66,6 +67,7 @@ import { Settings } from './ui/settings'
 import { TableControls } from './ui/table-controls'
 import { TabBar } from './ui/tabs'
 import { initTitlebar, setTitlebar, setTitlebarVisible } from './ui/titlebar'
+import { Versions } from './ui/versions'
 
 restoreTheme()
 restoreFont()
@@ -102,6 +104,20 @@ let tabsState: TabsState | null = null
 
 const displayedDoc = (): OpenDoc | null => (displayedId === null ? null : (docs.get(displayedId) ?? null))
 
+/* ---- Autosave: the renderer sees every keystroke; main does the writing.
+ * Debounced per doc, a backstop for unbroken typing bursts, flushes when a
+ * document leaves the foreground. Only file-backed docs qualify — an
+ * untitled one has nowhere to go without a dialog mid-thought. ---- */
+const autosaveScheduler = new AutosaveScheduler((docId) => {
+  const doc = docs.get(docId)
+  if (doc && doc.path && doc.dirty && !doc.conflictPending && autosaveEnabled()) {
+    window.foolscap.autosave(docId)
+  }
+})
+
+// Main's close guards mirror the setting; tell it where we stand at launch.
+window.foolscap.setAutosaveEnabled(autosaveEnabled())
+
 const editor = createEditor(app, {
   onDocChanged: () => {
     const doc = displayedDoc()
@@ -111,6 +127,9 @@ const editor = createEditor(app, {
       doc.dirty = true
       // The tab strip and title follow main's re-broadcast.
       window.foolscap.setDirty(displayedId, true)
+    }
+    if (doc.path && !doc.conflictPending && autosaveEnabled()) {
+      autosaveScheduler.changed(displayedId)
     }
   },
   onUpdate: (update) => {
@@ -253,7 +272,36 @@ function checkUpdatesNow(): void {
   })
 }
 
-const settings = new Settings({ modes, loadCustomTheme, checkForUpdates: checkUpdatesNow })
+const settings = new Settings({
+  modes,
+  loadCustomTheme,
+  checkForUpdates: checkUpdatesNow,
+  autosaveOn: () => autosaveEnabled(),
+  toggleAutosave: () => {
+    const on = !autosaveEnabled()
+    setAutosaveEnabled(on)
+    if (!on) autosaveScheduler.cancelAll()
+    showToast(on ? 'Autosave on — saved documents write themselves.' : 'Autosave off — ⌘S is back in charge.')
+  }
+})
+
+const versions = new Versions({
+  currentDocId: () => displayedId,
+  // Through a normal transaction, never the disk: ⌘Z undoes a restore, and
+  // the usual save path (autosave included) carries it to the file.
+  restore: (content) => {
+    if (helpPreview.visible) toggleHelp()
+    if (preview.visible || previewEntering) exitPreview()
+    const state = editor.view.state
+    editor.view.dispatch({
+      changes: { from: 0, to: state.doc.length, insert: content },
+      selection: { anchor: Math.min(state.selection.main.head, content.length) },
+      userEvent: 'input'
+    })
+    editor.view.focus()
+  },
+  toast: showToast
+})
 
 /* Menu accelerators arrive here even while an overlay is up; formatting only
  * makes sense against a visible buffer with a caret in it. */
@@ -280,6 +328,7 @@ window.foolscap.onCommand((command) => {
   else if (command === 'format-strike') formatInEditor(toggleStrikethrough)
   else if (command === 'format-code') formatInEditor(toggleInlineCode)
   else if (command === 'format-link') formatInEditor(insertLink)
+  else if (command === 'browse-versions') void versions.open()
 })
 
 const mod = window.foolscap.platform === 'darwin' ? '⌘' : 'Ctrl+'
@@ -291,6 +340,7 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'open', title: 'Open…', hint: `${mod}O`, run: () => window.foolscap.exec('file-open') },
   { id: 'save', title: 'Save', hint: `${mod}S`, run: () => window.foolscap.exec('file-save') },
   { id: 'save-as', title: 'Save As…', run: () => window.foolscap.exec('file-save-as') },
+  { id: 'versions', title: 'Browse Versions…', run: () => void versions.open() },
   {
     id: 'find',
     title: 'Find & Replace',
@@ -407,6 +457,9 @@ window.addEventListener('keydown', (e) => {
   } else if (e.key === 'Escape' && settings.visible) {
     e.preventDefault()
     settings.close()
+  } else if (e.key === 'Escape' && versions.visible) {
+    e.preventDefault()
+    versions.close()
   } else if (e.key === 'Escape' && helpPreview.visible) {
     e.preventDefault()
     toggleHelp()
@@ -430,6 +483,9 @@ const conflictBarFor = (docId: number): void => {
 function display(docId: number): void {
   const doc = docs.get(docId)
   if (!doc || docId === displayedId) return
+  // The outgoing document's pending autosave fires now, not mid-way through
+  // reading the next tab.
+  if (displayedId !== null) autosaveScheduler.flush(displayedId)
   // Leave preview first: its exit dispatch must land in the old buffer.
   if (preview.visible || previewEntering) exitPreview()
   const prev = displayedDoc()
@@ -469,7 +525,10 @@ window.foolscap.onTabs((state) => {
   // Tabs main no longer lists are gone for good — drop their buffers.
   const alive = new Set(state.tabs.map((t) => t.docId))
   for (const id of [...docs.keys()]) {
-    if (!alive.has(id)) docs.delete(id)
+    if (!alive.has(id)) {
+      autosaveScheduler.cancel(id)
+      docs.delete(id)
+    }
   }
   if (displayedId !== null && !alive.has(displayedId)) displayedId = null
   // Single tab: the quiet centered title. Multiple: the strip takes over.
@@ -489,7 +548,7 @@ window.foolscap.onLoad((doc) => {
       : doc.path === null && doc.content === NEW_DOC_TEMPLATE
         ? NEW_DOC_CURSOR
         : 0
-  const state = editor.makeState(doc.content, anchor, doc.dir)
+  const state = editor.makeState(doc.content, anchor, doc.dir, doc.history ?? null)
   docs.set(doc.docId, {
     state,
     path: doc.path,
@@ -539,6 +598,8 @@ window.foolscap.onSaved((saved) => {
     window.foolscap.setDirty(saved.docId, true)
   } else {
     doc.dirty = false
+    // A pending debounce would just re-save the same bytes.
+    autosaveScheduler.cancel(saved.docId)
   }
 })
 
@@ -550,9 +611,27 @@ window.foolscap.onRequestContent((docId) => {
   if (doc) doc.editedSinceContentSent = false
 })
 
+/* Quit persistence and tab transfers want the undo history too. */
+window.foolscap.onRequestState((docId) => {
+  const doc = docs.get(docId)
+  const state = docId === displayedId ? editor.view.state : doc?.state
+  window.foolscap.sendState(
+    docId,
+    state?.doc.toString() ?? '',
+    state ? editor.serializeHistory(state) : null
+  )
+  if (doc) doc.editedSinceContentSent = false
+})
+
+window.foolscap.onAutosaveFailed(() =>
+  showToast('Autosave couldn’t write the file — your changes are safe here. Check the folder, or ⌘S.')
+)
+
 window.foolscap.onConflict((docId) => {
   const doc = docs.get(docId)
   if (doc) doc.conflictPending = true
+  // Never autosave over an unresolved external change.
+  autosaveScheduler.cancel(docId)
   if (docId === displayedId) conflictBarFor(docId)
 })
 
@@ -561,6 +640,13 @@ window.foolscap.onUpdateReady(({ version }) =>
 )
 
 window.foolscap.onUpdatedTo((version) => showToast(`Foolscap updated to ${version}.`))
+
+/* Leaving the app (or the window) is a save point: whatever the debounce
+ * was still waiting on writes now. */
+window.addEventListener('blur', () => autosaveScheduler.flushAll())
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') autosaveScheduler.flushAll()
+})
 
 editor.view.focus()
 

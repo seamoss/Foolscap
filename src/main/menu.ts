@@ -61,6 +61,10 @@ export function installMenu(actions: MenuActions): void {
       accelerator: 'Shift+CmdOrCtrl+S',
       click: () => void actions.focused()?.activeTab?.save(true)
     },
+    {
+      label: 'Browse Versions…',
+      click: () => sendCommand('browse-versions')
+    },
     { type: 'separator' },
     {
       label: 'Export',

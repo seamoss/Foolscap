@@ -24,9 +24,9 @@ describe('session store', () => {
   })
 
   const entries: SessionEntry[] = [
-    { path: '/docs/notes.md', dirty: false, content: null },
-    { path: '/docs/draft.md', dirty: true, content: '# edited but unsaved' },
-    { path: null, dirty: true, content: 'untitled scratch survives quit' }
+    { path: '/docs/notes.md', dirty: false, content: null, history: '{"done":[]}' },
+    { path: '/docs/draft.md', dirty: true, content: '# edited but unsaved', history: null },
+    { path: null, dirty: true, content: 'untitled scratch survives quit', history: null }
   ]
 
   const windows: WindowEntry[] = [
@@ -42,6 +42,26 @@ describe('session store', () => {
   it('migrates v1 sessions: each entry becomes its own window', async () => {
     await writeFile(file, JSON.stringify({ version: 1, entries }))
     expect(await loadSession(file)).toEqual(entries.map((e) => ({ tabs: [e], active: 0 })))
+  })
+
+  it('reads v2 sessions: same shape, no undo history', async () => {
+    const v2 = windows.map((w) => ({
+      ...w,
+      tabs: w.tabs.map(({ history: _history, ...rest }) => rest)
+    }))
+    await writeFile(file, JSON.stringify({ version: 2, windows: v2 }))
+    expect(await loadSession(file)).toEqual(v2)
+  })
+
+  it('rejects entries whose history is not a string', async () => {
+    await writeFile(
+      file,
+      JSON.stringify({
+        version: 3,
+        windows: [{ tabs: [entries[0], { ...entries[1], history: 42 }], active: 0 }]
+      })
+    )
+    expect(await loadSession(file)).toEqual([{ tabs: [entries[0]], active: 0 }])
   })
 
   it('missing file loads as null', async () => {
