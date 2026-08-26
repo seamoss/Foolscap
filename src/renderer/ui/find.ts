@@ -54,6 +54,9 @@ export function createFindPanel(view: EditorView): Panel {
   searchInput.className = 'find-input'
   searchInput.placeholder = 'Find'
   searchInput.setAttribute('aria-label', 'Find')
+  // openSearchPanel on an already-open panel looks for [main-field] to
+  // refocus and reselect; without it a second ⌘F is a silent no-op.
+  searchInput.setAttribute('main-field', 'true')
   searchInput.value = existing.search
 
   const replaceInput = document.createElement('input')
@@ -77,7 +80,18 @@ export function createFindPanel(view: EditorView): Panel {
       regexp: pressed(reChip),
       wholeWord: pressed(wordChip)
     })
+    // Recounting happens in update() when the effect lands — one path for
+    // our own commits and for queries set from outside (openSearchPanel
+    // seeds from the selection when the panel is already open).
     view.dispatch({ effects: setSearchQuery.of(query) })
+  }
+
+  const syncFromQuery = (query: SearchQuery): void => {
+    if (searchInput.value !== query.search) searchInput.value = query.search
+    if (replaceInput.value !== query.replace) replaceInput.value = query.replace
+    caseChip.setAttribute('aria-pressed', String(query.caseSensitive))
+    reChip.setAttribute('aria-pressed', String(query.regexp))
+    wordChip.setAttribute('aria-pressed', String(query.wholeWord))
     recount(query)
   }
 
@@ -141,6 +155,9 @@ export function createFindPanel(view: EditorView): Panel {
       searchInput.select()
     },
     update: (update: ViewUpdate) => {
+      for (const tr of update.transactions)
+        for (const effect of tr.effects)
+          if (effect.is(setSearchQuery)) syncFromQuery(effect.value)
       if (update.docChanged) {
         window.clearTimeout(recountTimer)
         recountTimer = window.setTimeout(() => recount(getSearchQuery(view.state)), 200)

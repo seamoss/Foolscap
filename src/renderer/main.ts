@@ -155,7 +155,7 @@ new TableControls(editor.view)
 /* ---- Preview mode ---- */
 
 const preview = new Preview(
-  (pos) => exitPreview(pos),
+  (pos, screenTop) => exitPreview(pos, screenTop),
   // Table-resize write-back: apply the change to the (hidden) editor doc
   // and hand the preview the updated source to re-render from.
   (from, to, insert) => {
@@ -202,20 +202,34 @@ async function enterPreview(nearPos?: number): Promise<void> {
   }
 }
 
-function exitPreview(pos?: number): void {
+function exitPreview(pos?: number, screenTop?: number): void {
   previewGen++
   previewEntering = false
   document.documentElement.classList.remove('previewing')
   // No explicit target (⌘E, Escape): land where the reader was scrolled,
   // measured while the pane still has geometry.
-  const at = pos ?? (preview.visible ? preview.visiblePos() : undefined)
+  const target =
+    pos !== undefined
+      ? { pos, top: screenTop }
+      : preview.visible
+        ? (preview.visibleAnchor() ?? undefined)
+        : undefined
   preview.hide()
-  if (at !== undefined) {
-    const anchor = Math.min(at, editor.view.state.doc.length)
-    editor.view.dispatch({
-      selection: { anchor },
-      effects: EditorView.scrollIntoView(anchor, { y: 'center' })
-    })
+  if (target) {
+    const anchor = Math.min(target.pos, editor.view.state.doc.length)
+    // The page holds still: the anchor's line lands at the viewport height
+    // the element had in the preview. Clamped so the cursor stays on screen
+    // when a block taller than the viewport starts above the fold. Without
+    // a captured height (dblclick outside any stamped element) fall back to
+    // centering.
+    const effects =
+      target.top !== undefined
+        ? EditorView.scrollIntoView(anchor, {
+            y: 'start',
+            yMargin: Math.max(0, target.top - editor.view.scrollDOM.getBoundingClientRect().top)
+          })
+        : EditorView.scrollIntoView(anchor, { y: 'center' })
+    editor.view.dispatch({ selection: { anchor }, effects })
   }
   editor.view.focus()
 }
@@ -240,6 +254,14 @@ function toggleHelp(): void {
   } else {
     void helpPreview.show(helpMd, null, 0).catch(() => showToast('Help failed to render.'))
   }
+}
+
+/* Find is a CodeMirror panel, so it can only exist in the editor: reaching
+ * it from preview means leaving preview. Help overlays both; close it too. */
+function openFind(): void {
+  if (helpPreview.visible) toggleHelp()
+  if (preview.visible || previewEntering) exitPreview()
+  openSearchPanel(editor.view)
 }
 
 function loadCustomTheme(): void {
@@ -445,6 +467,11 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault()
     if (helpPreview.visible) toggleHelp()
     else togglePreview()
+  } else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+    // Redundant with CodeMirror's Mod-f while the editor has focus — this
+    // catches ⌘F everywhere else (preview, help, outline).
+    e.preventDefault()
+    openFind()
   } else if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === ',') {
     e.preventDefault()
     settings.toggle()
