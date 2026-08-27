@@ -19,6 +19,8 @@ interface SettingsHooks {
   modes: Modes
   loadCustomTheme(): void
   checkForUpdates(): void
+  autosaveOn(): boolean
+  toggleAutosave(): void
 }
 
 export class Settings {
@@ -69,6 +71,7 @@ export class Settings {
       this.fontSection(),
       this.sizeSection(),
       this.modesSection(),
+      this.savingSection(),
       this.updatesSection()
     )
 
@@ -147,6 +150,12 @@ export class Settings {
       this.chip('Focus', modes.focus, () => modes.toggleFocus()),
       this.chip('Word count', modes.wordCount, () => modes.toggleWordCount())
     )
+    return wrap
+  }
+
+  private savingSection(): HTMLElement {
+    const { wrap, row } = this.section('Saving')
+    row.append(this.chip('Autosave', this.hooks.autosaveOn(), () => this.hooks.toggleAutosave()))
     return wrap
   }
 

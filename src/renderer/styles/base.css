@@ -693,11 +693,114 @@ body {
   background: var(--paper-sunk);
 }
 
+.settings-chip:disabled,
+.settings-chip:disabled:hover {
+  color: var(--ink-ghost);
+  background: none;
+  cursor: default;
+}
+
 .settings-value {
   color: var(--ink);
   min-width: 3.2em;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* Version browser (File ▸ Browse Versions…): snapshot times down the left,
+ * the chosen snapshot readable beside them, one Restore below. */
+.versions {
+  position: absolute;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(52rem, 94vw);
+  height: min(34rem, 76vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-ui);
+  overflow: hidden;
+  font-size: var(--font-size-ui);
+  font-variation-settings: var(--vf-ui);
+  font-weight: var(--weight-ui);
+}
+
+.versions-head {
+  padding: 0.7rem 1rem 0.5rem;
+  color: var(--ink-ghost);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--rule);
+}
+
+.versions-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.versions-list {
+  width: 13rem;
+  flex-shrink: 0;
+  border-right: 1px solid var(--rule);
+  overflow-y: auto;
+  padding: 0.4rem 0;
+}
+
+.versions-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6em;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-variation-settings: inherit;
+  background: none;
+  border: none;
+  color: var(--ink);
+  padding: 0.45em 1em;
+  cursor: pointer;
+}
+
+.versions-item.selected {
+  background: var(--paper-sunk);
+  color: var(--accent);
+}
+
+.versions-size {
+  color: var(--ink-ghost);
+  font-variant-numeric: tabular-nums;
+}
+
+.versions-body {
+  flex: 1;
+  overflow: auto;
+}
+
+.versions-content {
+  margin: 0;
+  padding: 1rem 1.25rem;
+  font: inherit;
+  font-size: var(--font-size-body);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.versions-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  border-top: 1px solid var(--rule);
+  padding: 0.6rem 1rem;
+}
+
+.versions-hint {
+  color: var(--ink-ghost);
 }
 
 /* Focus mode: the active paragraph (one logical line) stays at full ink,

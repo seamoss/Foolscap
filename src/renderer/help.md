@@ -41,7 +41,7 @@ Everything lives in the command palette — press `⌘K` and type.
 | `⌘N` | New window |
 | `⌘T` | New tab — documents can share a window; drag a tab out to split |
 | `⌘O` | Open a file (or just drop one on the window) |
-| `⌘S` | Save (atomic: your file is never half-written) |
+| `⌘S` | Save (atomic: your file is never half-written; autosave does this for you) |
 | `⌘P` | Print |
 | `⌘,` | Settings — theme, font, text size |
 | `⌘+` / `⌘−` | Text larger / smaller (`⌘0` resets) |
@@ -68,6 +68,19 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
   ticking it writes the `x` into your file, because the file is the truth.
 - **Code** — fences highlight with real grammars, set in Ioskeley Mono.
 
+## Saving
+
+- **Autosave** keeps a saved document current on disk: a pause in typing,
+  a long burst, or switching away all write the file. Untitled documents
+  wait for a deliberate first save. Turn it off in `⌘,` ▸ Saving if you'd
+  rather drive.
+- **Versions** — *File ▸ Browse Versions…* (or `⌘K`). Foolscap snapshots
+  your document as you work — including the file exactly as you opened it —
+  into its own app data, never beside your files. Restoring a version
+  replaces the buffer as one edit, so `⌘Z` takes it right back.
+- **Undo remembers.** The undo stack survives quitting: reopen Foolscap
+  and `⌘Z` still walks yesterday's edits.
+
 ## Appearance
 
 `⌘,` opens Settings; the same knobs also live in `⌘K`. Seven themes,
@@ -81,15 +94,17 @@ the mouse.
 
 ## Leaving
 
-- `⌘W` closes a tab — the window, when it's the last one — and **asks**
-  about unsaved changes; closing is a
-  decision about that document.
-- `⌘Q` quits **silently** — every open window, including unsaved drafts,
-  is remembered and comes back the next time you open Foolscap. Quitting
-  is just stepping away from the desk.
+- `⌘W` closes a tab — the window, when it's the last one. A saved
+  document quietly writes itself on the way out (that's autosave); only
+  untitled work, or a document autosave can't safely write, gets
+  **asked** about.
+- `⌘Q` quits **silently** — files are flushed, and every open window,
+  including unsaved drafts, is remembered and comes back the next time
+  you open Foolscap. Quitting is just stepping away from the desk.
 
-Drafts are kept beside your files, never written into them. A `.md` on
-disk changes only when you explicitly save.
+Untitled drafts are kept in Foolscap's own app data, never written into
+your folders. A `.md` on disk changes only through a save — yours or
+autosave's.
 
 ## Why does this exist?
 

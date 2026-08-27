@@ -11,6 +11,9 @@ export interface SessionEntry {
   dirty: boolean
   /* Buffer text; null when the disk copy is authoritative (clean). */
   content: string | null
+  /* Serialized CodeMirror undo history (opaque JSON string) so ⌘Z survives
+   * a quit; null or absent when it didn't survive serialization. */
+  history?: string | null
 }
 
 /* One window: its tabs in order and which one was active. */
@@ -21,12 +24,12 @@ export interface WindowEntry {
 }
 
 interface SessionFile {
-  version: 2
+  version: 3
   windows: WindowEntry[]
 }
 
 export async function saveSession(file: string, windows: WindowEntry[]): Promise<void> {
-  const data: SessionFile = { version: 2, windows }
+  const data: SessionFile = { version: 3, windows }
   await atomicWriteFile(file, JSON.stringify(data))
 }
 
@@ -36,7 +39,8 @@ function isEntry(value: unknown): value is SessionEntry {
   return (
     (typeof e['path'] === 'string' || e['path'] === null) &&
     typeof e['dirty'] === 'boolean' &&
-    (typeof e['content'] === 'string' || e['content'] === null)
+    (typeof e['content'] === 'string' || e['content'] === null) &&
+    (e['history'] === undefined || e['history'] === null || typeof e['history'] === 'string')
   )
 }
 
@@ -52,7 +56,9 @@ export async function loadSession(file: string): Promise<WindowEntry[] | null> {
     if (typeof parsed !== 'object' || parsed === null) return null
     const data = parsed as { version?: unknown; windows?: unknown; entries?: unknown }
     let windows: WindowEntry[] = []
-    if (data.version === 2 && Array.isArray(data.windows)) {
+    // v2 entries simply lack the history field — the same shape check covers
+    // both, and a v2 session restores with no undo, which is what it had.
+    if ((data.version === 3 || data.version === 2) && Array.isArray(data.windows)) {
       windows = (data.windows as unknown[])
         .filter(isWindowEntry)
         .map((w) => ({ tabs: w.tabs.filter(isEntry), active: w.active }))
