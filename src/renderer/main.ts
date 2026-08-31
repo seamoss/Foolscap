@@ -337,6 +337,7 @@ window.foolscap.onCommand((command) => {
   if (command === 'toggle-outline') outline.toggle()
   else if (command === 'toggle-typewriter') modes.toggleTypewriter()
   else if (command === 'toggle-focus') modes.toggleFocus()
+  else if (command === 'toggle-line-numbers') modes.toggleLineNumbers()
   else if (command === 'toggle-palette') palette.toggle()
   else if (command === 'toggle-preview') togglePreview()
   else if (command === 'show-help') toggleHelp()
@@ -385,6 +386,7 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'typewriter', title: 'Toggle Typewriter Mode', run: () => modes.toggleTypewriter() },
   { id: 'focus', title: 'Toggle Focus Mode', run: () => modes.toggleFocus() },
   { id: 'wordcount', title: 'Toggle Word Count', run: () => modes.toggleWordCount() },
+  { id: 'line-numbers', title: 'Toggle Line Numbers', run: () => modes.toggleLineNumbers() },
   { id: 'settings', title: 'Settings…', hint: `${mod},`, run: () => settings.toggle() },
   { id: 'check-updates', title: 'Check for Updates…', run: () => checkUpdatesNow() },
   { id: 'print', title: 'Print…', hint: `${mod}P`, run: () => window.foolscap.exec('file-print') },

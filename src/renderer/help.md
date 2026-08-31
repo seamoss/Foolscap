@@ -90,7 +90,8 @@ crisp faces, five serif and five sans; your pick carries the whole page,
 while code keeps its mono. **Typewriter mode** keeps the line you're
 typing vertically centered; **focus mode** dims everything but the
 paragraph you're in; the word count whispers in the corner when you move
-the mouse.
+the mouse. **Line numbers** (off by default) put a quiet ordinal beside
+each source line — the editor only; the preview stays a page.
 
 ## Leaving
 

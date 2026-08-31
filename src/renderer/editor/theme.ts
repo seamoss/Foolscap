@@ -213,6 +213,26 @@ const editorTheme = EditorView.theme({
     marginRight: '0.35ch',
     color: 'var(--ink-ghost)',
     fontWeight: 'var(--weight-mark-ghost)'
+  },
+
+  /* ---- Line numbers (optional; Settings ▸ Writing): quiet mono ordinals
+   * left of the glyph column. Editor-only — the preview pane renders blocks,
+   * not source lines. Fixed at UI size so the column doesn't breathe with
+   * heading lines; the line-height calc sits each number on its line's
+   * first visual row at body metrics. ---- */
+  '.cm-gutters': {
+    backgroundColor: 'transparent',
+    border: 'none',
+    color: 'var(--ink-ghost)',
+    fontFamily: 'var(--font-code)',
+    fontVariationSettings: 'var(--vf-code)',
+    fontWeight: 'var(--weight-code)',
+    fontSize: 'var(--font-size-ui)'
+  },
+  '.cm-lineNumbers .cm-gutterElement': {
+    minWidth: 'var(--gutter-width)',
+    padding: '0 var(--pad-block)',
+    lineHeight: 'calc(var(--font-size-body) * var(--leading-body))'
   }
 })
 
