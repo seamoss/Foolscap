@@ -13,6 +13,17 @@ import { IPC } from '../shared/types'
 import { installAndRestart, startAutoUpdater } from './updater'
 import { createWindow, installContentsGuards } from './window'
 
+/* Dev-only: FOOLSCAP_USER_DATA=<dir> points userData — session, history,
+ * positions, and the single-instance lock — somewhere disposable, so a
+ * from-source instance runs beside the installed app without touching its
+ * state. Packaged builds ignore it. Sibling of FOOLSCAP_CAPTURE in
+ * window.ts. */
+const userDataOverride = process.env['FOOLSCAP_USER_DATA']
+if (userDataOverride && !app.isPackaged) {
+  app.setPath('userData', userDataOverride)
+  app.setPath('sessionData', userDataOverride)
+}
+
 const gotLock = app.requestSingleInstanceLock()
 
 if (!gotLock) {
