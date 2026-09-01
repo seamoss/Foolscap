@@ -752,9 +752,12 @@ window.foolscap.onLoad((doc) => {
 window.foolscap.onSaved((saved) => {
   const doc = docs.get(saved.docId)
   if (!doc) return
+  // Only Save As moves the document; a plain save must not reconfigure the
+  // folder facet, which rebuilds every image widget for nothing.
+  const moved = doc.dir !== saved.dir
   doc.path = saved.path
   doc.dir = saved.dir
-  if (saved.docId === displayedId) editor.setDocDir(saved.dir)
+  if (moved && saved.docId === displayedId) editor.setDocDir(saved.dir)
   if (doc.editedSinceContentSent) {
     // Edits landed after the save's snapshot: the file is already stale.
     // Stay dirty — and tell main so, since its session cleared its own flag
