@@ -1,3 +1,4 @@
+import type { EditorState } from '@codemirror/state'
 import { EditorView, type ViewUpdate } from '@codemirror/view'
 import { lineNumbersOn, setLineNumbers, syncLineNumbers } from '../editor/line-numbers'
 import { setTableGrid, syncTableGrid, tableGridOn } from '../editor/live-preview/table-grid'
@@ -141,6 +142,19 @@ export function countWords(text: string): number {
   return count
 }
 
+/* Words inside the selection, summed across ranges; null when nothing is
+ * selected, so the whisper falls back to the document count. */
+export function selectedWordCount(state: EditorState): number | null {
+  let count = 0
+  let any = false
+  for (const range of state.selection.ranges) {
+    if (range.empty) continue
+    any = true
+    count += countWords(state.sliceDoc(range.from, range.to))
+  }
+  return any ? count : null
+}
+
 export function applyTheme(theme: ThemeName | null): void {
   document.getElementById('custom-theme')?.remove()
   if (theme) {
@@ -210,6 +224,9 @@ export class Modes {
   private countEl: HTMLElement
   private fadeTimer: number | undefined
   private recountTimer: number | undefined
+  /* The document's count, recomputed only when the document changes; the
+   * selection's share is cheap enough to read on every selection change. */
+  private total = 0
 
   constructor(private readonly view: EditorView) {
     document.documentElement.classList.toggle('focus-mode', this.focus)
@@ -263,13 +280,19 @@ export class Modes {
   }
 
   handleUpdate(update: ViewUpdate): void {
-    if (!update.docChanged) return
-    if (this.typewriter) {
-      // Dispatching inside an update is illegal; defer a tick.
-      queueMicrotask(() => this.center())
+    if (update.docChanged) {
+      if (this.typewriter) {
+        // Dispatching inside an update is illegal; defer a tick.
+        queueMicrotask(() => this.center())
+      }
+      window.clearTimeout(this.recountTimer)
+      this.recountTimer = window.setTimeout(() => this.recount(), 300)
+    } else if (update.selectionSet) {
+      // A selection being made shows its count while it's being made —
+      // keyboard selection moves no mouse, so it peeks on its own.
+      this.label()
+      if (selectedWordCount(update.state) !== null) this.peek()
     }
-    window.clearTimeout(this.recountTimer)
-    this.recountTimer = window.setTimeout(() => this.recount(), 300)
   }
 
   refresh(): void {
@@ -287,8 +310,17 @@ export class Modes {
   }
 
   private recount(): void {
-    const words = countWords(this.view.state.doc.toString())
-    this.countEl.textContent = `${words} ${words === 1 ? 'word' : 'words'}`
+    this.total = countWords(this.view.state.doc.toString())
+    this.label()
+  }
+
+  /* "212 of 3400 words" while text is selected; the plain count otherwise. */
+  private label(): void {
+    const selected = selectedWordCount(this.view.state)
+    this.countEl.textContent =
+      selected === null
+        ? `${this.total} ${this.total === 1 ? 'word' : 'words'}`
+        : `${selected} of ${this.total} words`
   }
 
   /* §4.4: fades in on mouse move, out after 2s. */

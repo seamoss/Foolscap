@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { clampTextSize, countWords, FONTS, TEXT_SIZE } from './modes'
+import { EditorSelection, EditorState } from '@codemirror/state'
+import { clampTextSize, countWords, FONTS, selectedWordCount, TEXT_SIZE } from './modes'
 
 describe('clampTextSize', () => {
   it('clamps to the plan range and rounds', () => {
@@ -53,5 +54,38 @@ describe('extForMime', () => {
   it('rejects non-images', () => {
     expect(extForMime('text/plain')).toBeNull()
     expect(extForMime('image/svg+xml')).toBeNull()
+  })
+})
+
+describe('selectedWordCount', () => {
+  const doc = 'one two three four five'
+
+  it('is null with nothing selected', () => {
+    expect(selectedWordCount(EditorState.create({ doc, selection: { anchor: 4 } }))).toBeNull()
+  })
+
+  it('counts the words inside the selection', () => {
+    const state = EditorState.create({ doc, selection: { anchor: 4, head: 13 } })
+    expect(state.sliceDoc(4, 13)).toBe('two three')
+    expect(selectedWordCount(state)).toBe(2)
+  })
+
+  it('sums across multiple ranges and ignores empty ones', () => {
+    const state = EditorState.create({
+      doc,
+      extensions: EditorState.allowMultipleSelections.of(true),
+      selection: EditorSelection.create([
+        EditorSelection.range(0, 3),
+        EditorSelection.cursor(8),
+        EditorSelection.range(14, 23)
+      ])
+    })
+    expect(selectedWordCount(state)).toBe(3)
+  })
+
+  it('counts partial words as words, like the document count does', () => {
+    const state = EditorState.create({ doc, selection: { anchor: 1, head: 6 } })
+    expect(state.sliceDoc(1, 6)).toBe('ne tw')
+    expect(selectedWordCount(state)).toBe(2)
   })
 })
