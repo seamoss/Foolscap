@@ -2,6 +2,7 @@ import { dialog, ipcMain, shell } from 'electron'
 import { DROPPABLE_FILE, IPC, type AppCommand, type ConflictChoice } from '../shared/types'
 import { readTextFile } from './files'
 import type { MenuActions } from './menu'
+import { positions } from './positions-store'
 import { setAutosaveEnabled, type WindowSession } from './session'
 import { checkNow } from './updater'
 
@@ -24,6 +25,17 @@ export function registerIpc(
     sessionFor(e.sender.id)?.tab(docId)?.resolveConflict(choice)
   )
   ipcMain.on(IPC.autosave, (e, docId: number) => void sessionFor(e.sender.id)?.tab(docId)?.autosave())
+  ipcMain.on(IPC.position, (e, docId: number, position: unknown) => {
+    // The path comes from the tab, never the renderer; the store validates
+    // the offsets.
+    const path = sessionFor(e.sender.id)?.tab(docId)?.getPath()
+    if (path && typeof position === 'object' && position !== null) {
+      const p = position as Record<string, unknown>
+      if (typeof p['head'] === 'number' && typeof p['top'] === 'number') {
+        positions.remember(path, { head: p['head'], top: p['top'] })
+      }
+    }
+  })
   ipcMain.on(IPC.autosaveEnabled, (_e, on: boolean) => setAutosaveEnabled(on === true))
   ipcMain.handle(IPC.historyList, (e, docId: number) =>
     sessionFor(e.sender.id)?.tab(docId)?.listHistory() ?? []

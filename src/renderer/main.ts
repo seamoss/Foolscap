@@ -34,7 +34,7 @@ import { openSearchPanel } from '@codemirror/search'
 import type { EditorState, StateCommand, TransactionSpec } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { renderMarkdown } from '../shared/markdown'
-import { NEW_DOC_CURSOR, NEW_DOC_TEMPLATE, type TabsState } from '../shared/types'
+import { NEW_DOC_CURSOR, NEW_DOC_TEMPLATE, type DocPosition, type TabsState } from '../shared/types'
 import {
   insertLink,
   toggleBold,
@@ -98,6 +98,12 @@ interface OpenDoc {
   editedSinceContentSent: boolean
   conflictPending: boolean
   scrollTop: number
+  /* Top-of-view offset remembered from a past visit, applied on the first
+   * display and then cleared; scrollTop takes over for tab switches. */
+  restoreTop: number | null
+  /* Where the reader was when this tab left the foreground — what a
+   * background tab reports when main asks at quit. */
+  position: DocPosition | null
 }
 
 const docs = new Map<number, OpenDoc>()
@@ -254,6 +260,34 @@ function exitPreview(pos?: number, screenTop?: number): void {
 function togglePreview(): void {
   if (preview.visible || previewEntering) exitPreview()
   else void enterPreview()
+}
+
+/* ---- Where you were: the caret and the line at the top of the view, as
+ * offsets — or, while previewing, the block at the pane's center. Main
+ * keeps it per file and hands it back on the next open. ---- */
+
+function whereabouts(): DocPosition | null {
+  if (preview.visible) {
+    const anchor = preview.visibleAnchor()
+    return anchor ? { head: anchor.pos, top: anchor.pos } : null
+  }
+  const view = editor.view
+  const y = view.scrollDOM.getBoundingClientRect().top - view.documentTop
+  return {
+    head: view.state.selection.main.head,
+    top: view.lineBlockAtHeight(Math.max(0, y)).from
+  }
+}
+
+/* Called at the moments the displayed document might stop being looked
+ * at; untitled drafts have no file to remember against. */
+function rememberWhereabouts(): void {
+  const doc = displayedDoc()
+  if (!doc || displayedId === null) return
+  const position = whereabouts()
+  if (!position) return
+  doc.position = position
+  if (doc.path) window.foolscap.rememberPosition(displayedId, position)
 }
 
 /* ---- Help: a markdown document rendered by the same preview machinery it
@@ -581,6 +615,9 @@ const conflictBarFor = (docId: number): void => {
 function display(docId: number): void {
   const doc = docs.get(docId)
   if (!doc || docId === displayedId) return
+  // Where the outgoing document was — read while the preview, if up, still
+  // has geometry.
+  rememberWhereabouts()
   // The outgoing document's pending autosave fires now, not mid-way through
   // reading the next tab.
   if (displayedId !== null) autosaveScheduler.flush(displayedId)
@@ -593,16 +630,28 @@ function display(docId: number): void {
   }
   displayedId = docId
   editor.view.setState(doc.state)
-  // Scroll geometry settles a frame after setState.
-  const scrollTop = doc.scrollTop
-  requestAnimationFrame(() => {
-    editor.view.scrollDOM.scrollTop = scrollTop
-  })
+  restoreView(doc)
   if (doc.conflictPending) conflictBarFor(docId)
   else hideConflictBar()
   outline.refresh()
   modes.refresh()
   editor.view.focus()
+}
+
+/* A first display lands the remembered top line at the top of the view;
+ * a return from another tab restores the exact pixel. */
+function restoreView(doc: OpenDoc): void {
+  if (doc.restoreTop !== null) {
+    const top = Math.min(doc.restoreTop, doc.state.doc.length)
+    doc.restoreTop = null
+    editor.view.dispatch({ effects: EditorView.scrollIntoView(top, { y: 'start' }) })
+    return
+  }
+  // Scroll geometry settles a frame after setState.
+  const scrollTop = doc.scrollTop
+  requestAnimationFrame(() => {
+    editor.view.scrollDOM.scrollTop = scrollTop
+  })
 }
 
 /* The strip in the titlebar; hidden when the window has a single tab. */
@@ -624,6 +673,8 @@ window.foolscap.onTabs((state) => {
   const alive = new Set(state.tabs.map((t) => t.docId))
   for (const id of [...docs.keys()]) {
     if (!alive.has(id)) {
+      // A closed tab's last position, read while its buffer is still up.
+      if (id === displayedId) rememberWhereabouts()
       autosaveScheduler.cancel(id)
       docs.delete(id)
     }
@@ -640,26 +691,35 @@ window.foolscap.onTabs((state) => {
 })
 
 window.foolscap.onLoad((doc) => {
+  // Where the reader left this file last time; main only sends it on opens.
+  const remembered = doc.position ?? null
   const anchor =
     doc.reason === 'reload' && doc.docId === displayedId
       ? editor.view.state.selection.main.head
-      : doc.path === null && doc.content === NEW_DOC_TEMPLATE
-        ? NEW_DOC_CURSOR
-        : 0
+      : remembered
+        ? remembered.head
+        : doc.path === null && doc.content === NEW_DOC_TEMPLATE
+          ? NEW_DOC_CURSOR
+          : 0
   const state = editor.makeState(doc.content, anchor, doc.dir, doc.history ?? null)
-  docs.set(doc.docId, {
+  const opened: OpenDoc = {
     state,
     path: doc.path,
     dir: doc.dir,
     dirty: doc.dirty,
     editedSinceContentSent: false,
     conflictPending: false,
-    scrollTop: 0
-  })
+    scrollTop: 0,
+    restoreTop: remembered?.top ?? null,
+    position: remembered
+  }
+  docs.set(doc.docId, opened)
   if (doc.docId === displayedId) {
-    // A reload of the visible document replaces the buffer in place.
+    // A reload of the visible document replaces the buffer in place; so
+    // does a file opening into the untitled tab already showing.
     hideConflictBar()
     editor.view.setState(state)
+    restoreView(opened)
     outline.refresh()
     modes.refresh()
   } else if (displayedId === null || tabsState?.active === doc.docId) {
@@ -676,7 +736,7 @@ window.foolscap.onLoad((doc) => {
   } else if (doc.reason === 'transfer') {
     exitPreview()
   } else if (!doc.dirty && doc.path && doc.content.trim() !== '') {
-    void enterPreview(0)
+    void enterPreview(remembered ? Math.min(remembered.head, doc.content.length) : 0)
   } else {
     exitPreview()
   }
@@ -716,7 +776,8 @@ window.foolscap.onRequestState((docId) => {
   window.foolscap.sendState(
     docId,
     state?.doc.toString() ?? '',
-    state ? editor.serializeHistory(state) : null
+    state ? editor.serializeHistory(state) : null,
+    docId === displayedId ? whereabouts() : (doc?.position ?? null)
   )
   if (doc) doc.editedSinceContentSent = false
 })
@@ -740,11 +801,18 @@ window.foolscap.onUpdateReady(({ version }) =>
 window.foolscap.onUpdatedTo((version) => showToast(`Foolscap updated to ${version}.`))
 
 /* Leaving the app (or the window) is a save point: whatever the debounce
- * was still waiting on writes now. */
-window.addEventListener('blur', () => autosaveScheduler.flushAll())
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') autosaveScheduler.flushAll()
+ * was still waiting on writes now — and where the reader was is noted. */
+window.addEventListener('blur', () => {
+  autosaveScheduler.flushAll()
+  rememberWhereabouts()
 })
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    autosaveScheduler.flushAll()
+    rememberWhereabouts()
+  }
+})
+window.addEventListener('pagehide', () => rememberWhereabouts())
 
 editor.view.focus()
 

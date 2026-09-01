@@ -6,6 +6,7 @@ import {
   NEW_DOC_TEMPLATE,
   type ConflictChoice,
   type DocPayload,
+  type DocPosition,
   type HistoryEntry,
   type LoadReason,
   type SavedPayload,
@@ -16,6 +17,7 @@ import { printDocument, renderPdf } from './export/pdf'
 import { closedTabs } from './closed-tabs'
 import { assetName, atomicWriteFile, readTextFile, watchFile } from './files'
 import { docKey, listSnapshots, pruneSnapshots, readSnapshot, writeSnapshot } from './history-store'
+import { positions } from './positions-store'
 import { acquireAccess, ensureFolderAccess, rememberBookmark } from './scoped'
 import type { SessionEntry, WindowEntry } from './session-store'
 import { existsSync } from 'node:fs'
@@ -30,6 +32,14 @@ const MD_FILTERS = [{ name: 'Markdown', extensions: ['md', 'markdown', 'mdx'] }]
 
 /* App-unique tab identity; ids never recycle within a run. */
 let nextDocId = 1
+
+function readPosition(value: unknown): DocPosition | null {
+  if (typeof value !== 'object' || value === null) return null
+  const p = value as Record<string, unknown>
+  return typeof p['head'] === 'number' && typeof p['top'] === 'number'
+    ? { head: p['head'], top: p['top'] }
+    : null
+}
 
 /* Renderer-owned autosave setting, mirrored here so close guards and the
  * quit flush know a dirty file-backed tab can be quietly saved instead of
@@ -116,14 +126,23 @@ export class TabSession {
     if (!this.dirty) {
       let history: string | null = null
       try {
-        history = (await this.getRendererState(3000)).history
+        const state = await this.getRendererState(3000)
+        history = state.history
+        this.rememberPosition(state.position)
       } catch {
         // a clean document can restore without its undo stack
       }
       return { path: this.path, dirty: false, content: null, history }
     }
     const state = await this.getRendererState(3000)
+    this.rememberPosition(state.position)
     return { path: this.path, dirty: true, content: state.content, history: state.history }
+  }
+
+  /* The quit path's last word on where the reader was — the renderer's own
+   * sends can't be relied on once unloading has begun. */
+  private rememberPosition(position: DocPosition | null): void {
+    if (this.path && position) positions.remember(this.path, position)
   }
 
   async restore(entry: SessionEntry): Promise<void> {
@@ -514,7 +533,8 @@ export class TabSession {
       content,
       dirty,
       reason,
-      history
+      history,
+      position: reason === 'open' && this.path ? positions.recall(this.path) : null
     }
     this.win.webContents.send(IPC.load, payload)
   }
@@ -535,13 +555,16 @@ export class TabSession {
   /* Content plus serialized undo history — the quit-persistence and
    * tab-transfer payload. Saves stick to getRendererContent: serializing an
    * undo stack per keystroke-debounce would be pure waste. */
-  getRendererState(timeoutMs?: number): Promise<{ content: string; history: string | null }> {
+  getRendererState(
+    timeoutMs?: number
+  ): Promise<{ content: string; history: string | null; position: DocPosition | null }> {
     return this.rendererRoundtrip(
       IPC.requestState,
       IPC.state,
       (args) => ({
         content: typeof args[0] === 'string' ? args[0] : '',
-        history: typeof args[1] === 'string' ? args[1] : null
+        history: typeof args[1] === 'string' ? args[1] : null,
+        position: readPosition(args[2])
       }),
       timeoutMs
     )

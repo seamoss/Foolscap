@@ -6,6 +6,7 @@ import { pathsFromArgv, type ArgvFilter } from './cli'
 import { closedTabs } from './closed-tabs'
 import { registerIpc } from './ipc'
 import { installMenu, type MenuActions } from './menu'
+import { positions } from './positions-store'
 import { WindowSession } from './session'
 import { clearSession, loadSession, saveSession, type WindowEntry } from './session-store'
 import { IPC } from '../shared/types'
@@ -276,6 +277,8 @@ if (!gotLock) {
     } catch {
       // losing the session is bad, refusing to quit is worse
     }
+    // captureState above recorded every tab's last position; land them.
+    await positions.flush()
     persistedQuit = true
     for (const session of sessions.values()) session.allowSilentClose()
     // Session is safe on disk either way; an update restart costs nothing.
@@ -303,6 +306,8 @@ if (!gotLock) {
     // skipping it would leave session.json unconsumed, and the next quit's
     // persistAndQuit overwrites it wholesale — silently destroying persisted
     // drafts. Restored windows and argument files open side by side.
+    // Before any document loads: recall is synchronous from here on.
+    await positions.open(join(app.getPath('userData'), 'positions.json'))
     const restored = await loadSession(sessionFile())
     // Every unclosed window comes back — clean documents only if their file
     // still exists; dirty drafts always, the content outranks the file.

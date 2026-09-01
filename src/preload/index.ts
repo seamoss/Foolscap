@@ -4,6 +4,7 @@ import {
   type AppCommand,
   type ConflictChoice,
   type DocPayload,
+  type DocPosition,
   type FoolscapApi,
   type MenuCommand,
   type SavedPayload,
@@ -15,7 +16,10 @@ const api: FoolscapApi = {
   platform: process.platform,
   setDirty: (docId, dirty) => ipcRenderer.send(IPC.dirty, docId, dirty),
   sendContent: (docId, content) => ipcRenderer.send(IPC.content, docId, content),
-  sendState: (docId, content, history) => ipcRenderer.send(IPC.state, docId, content, history),
+  sendState: (docId, content, history, position) =>
+    ipcRenderer.send(IPC.state, docId, content, history, position),
+  rememberPosition: (docId, position: DocPosition) =>
+    ipcRenderer.send(IPC.position, docId, position),
   autosave: (docId) => ipcRenderer.send(IPC.autosave, docId),
   setAutosaveEnabled: (on) => ipcRenderer.send(IPC.autosaveEnabled, on),
   historyList: (docId) => ipcRenderer.invoke(IPC.historyList, docId),

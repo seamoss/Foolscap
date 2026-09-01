@@ -23,6 +23,17 @@ export interface DocPayload {
    * on session restores and tab transfers, so ⌘Z survives both. Absent on
    * plain opens. */
   history?: string | null
+  /* Where the reader left this file last time (src/main/positions-store.ts)
+   * — only on opens of a file-backed document, null when never visited. */
+  position?: DocPosition | null
+}
+
+/* A place in a document as offsets: the caret, and the line at the top of
+ * the view. Offsets rather than pixels so text size and window width can
+ * change underneath without stranding anything. */
+export interface DocPosition {
+  head: number
+  top: number
 }
 
 /* One entry in a document's version history — a full snapshot in userData,
@@ -139,6 +150,7 @@ export const IPC = {
   dirty: 'doc:dirty',
   content: 'doc:content',
   state: 'doc:state',
+  position: 'doc:position',
   autosave: 'doc:autosave',
   autosaveEnabled: 'app:autosave-enabled',
   historyList: 'history:list',
@@ -175,8 +187,12 @@ export interface FoolscapApi {
   setDirty(docId: number, dirty: boolean): void
   sendContent(docId: number, content: string): void
   /* Reply to requestState: the buffer plus its serialized undo history
-   * (null when serialization failed or was oversized). */
-  sendState(docId: number, content: string, history: string | null): void
+   * (null when serialization failed or was oversized) and where the reader
+   * is, which the quit path records for the next open. */
+  sendState(docId: number, content: string, history: string | null, position: DocPosition | null): void
+  /* Where the reader is in a document, at the moments it might be about
+   * to stop being looked at: tab switch, tab close, window blur, unload. */
+  rememberPosition(docId: number, position: DocPosition): void
   /* A quiet save of a file-backed dirty buffer — the debounced edge of
    * autosave. Main ignores it when there's nothing safe to do. */
   autosave(docId: number): void
