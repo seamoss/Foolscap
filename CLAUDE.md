@@ -36,6 +36,9 @@ component. If a token is missing, add it to tokens.css first.
 - TypeScript strict. No `any`. No non-null assertions without a comment.
 - No new runtime dependency without asking.
 - Build decorations from `view.visibleRanges` only, via `RangeSetBuilder`.
+  The one exception is block-level replace decorations (the table grid),
+  which CodeMirror refuses from view plugins: those live in a StateField
+  and scan the whole document, and say so in a comment.
 - Every save is atomic: temp file in the same directory, fsync, rename.
 - Cursor-adjacency logic lives in ONE pure function in
   `src/renderer/editor/live-preview/marks.ts`. Never inline it elsewhere.

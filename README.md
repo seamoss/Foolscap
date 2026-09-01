@@ -8,8 +8,9 @@ A markdown editor. Free, open source, file-first, and unreasonably well-typeset.
 
 That's the editor, mid-edit, in the Plate theme. The `##` and `**` haven't
 vanished — they've **receded**: still legible, still telling you what the
-structure is, ready to breathe back up when your cursor arrives. The table's
-pipes are aligned in the file itself, not just on screen.
+structure is, ready to breathe back up when your cursor arrives. The table
+is a real grid you edit in place; the file underneath it is tidy pipes,
+aligned in the file itself, not just on screen.
 
 Foolscap is a single beautiful writing surface for markdown files. The buffer is plain markdown text at all times — live preview is decorations over that text, never a document model — so the file on disk is always exactly what you wrote. What you see in the editor is what HTML and PDF export produce, because one pipeline drives all three:
 
@@ -20,13 +21,15 @@ Foolscap is a single beautiful writing surface for markdown files. The buffer is
 - Files open where you left them; ⇧⌘T reopens a closed tab; drop an image from Finder or paste a URL over a selection and the markdown writes itself
 - Live preview of every markdown construct: headings (Fraunces, real optical sizing), emphasis, lists with hanging indents and real bullets, links (Cmd-click to open), Shiki-highlighted code fences, inline images, blockquotes, rules, clickable task-list checkboxes, and tables that render as a real grid and edit in place (click a cell and type; ⌥-click for the pipe source with its normalizing formatter, drag-to-resize columns, and hover column controls)
 - Atomic saves — temp file, fsync, rename; a crash can never truncate your manuscript
+- Autosave with a browsable version history (File ▸ Browse Versions…), restores that ⌘Z undoes, and an undo stack that survives relaunch
 - External-change watching: clean buffers reload silently, dirty buffers get a choice
-- Command palette (⌘K), find & replace, outline panel, typewriter and focus modes, word count
+- Command palette (⌘K), find & replace, outline panel, typewriter and focus modes, optional line numbers, a word count that counts the selection
 - Seven themes — from the house Ledger and Plate to GitHub, Vercel, and VS Code — plus load-your-own-CSS custom themes ([THEMING.md](THEMING.md))
 - Ten writing faces, five serif and five sans; one font per page, and code keeps [Ioskeley Mono](https://github.com/ahatem/IoskeleyMono)
-- Paste images from the clipboard into a sibling `assets/` folder
+- Paste images from the clipboard, or drop them from Finder, into a sibling `assets/` folder
 - Tabs and windows — drag a tab out and it becomes a window — with full session restore: `⌘Q` quits silently and the next launch sets the desk back up, unsaved drafts included
-- Self-contained HTML export and typeset PDF export with the editor's real fonts
+- Self-contained HTML export and typeset PDF export with the editor's real fonts — pretty-wrapped, hyphenated, headings balanced
+- Signed, notarized, and self-updating; checks for updates from the Help menu or Settings
 
 ## Out of scope
 

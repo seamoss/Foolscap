@@ -2,6 +2,8 @@
 
 A markdown editor in the spirit of Typora. Free, open source, file-first, and unreasonably well-typeset.
 
+> **Status (September 2026):** every phase below has shipped — signed, notarized, self-updating releases since 0.6.1/0.7.0, tabs, autosave with version history, the table grid. This document is kept as the design record: the thesis, the non-goals, and the rules in CLAUDE.md are still the constitution; the phase checklists are history.
+
 > **Working name.** `Foolscap` is a paper size and a writer's word. Swap it if you have better, but pick the name before Phase 0 so it's baked into the bundle ID, the repo, and the signing cert. Renaming after code signing is genuinely annoying.
 
 ---

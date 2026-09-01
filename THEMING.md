@@ -2,7 +2,7 @@
 
 A theme is one CSS file. It sets custom properties on `:root[data-theme='<name>']` — nothing else. Everything the editor, the outline, the palette, and the exports draw comes from these properties.
 
-Foolscap ships three themes, in `src/renderer/styles/themes/`:
+Foolscap ships seven themes, in `src/renderer/styles/themes/`:
 
 | Theme | File | Character |
 |---|---|---|
