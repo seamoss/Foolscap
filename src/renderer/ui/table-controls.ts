@@ -1,4 +1,5 @@
 import type { EditorView } from '@codemirror/view'
+import { tableGridCoversPos } from '../editor/live-preview/table-grid'
 import { tableAt } from '../editor/table-commands'
 import {
   adjustColumnWidth,
@@ -64,6 +65,13 @@ export class TableControls {
     const pos = this.view.posAtCoords({ x, y })
     const table = pos === null ? null : tableAt(this.view.state, pos)
     if (!table || pos === null) {
+      this.setResizeCursor(false)
+      this.scheduleHide()
+      return
+    }
+    // A grid-rendered table has no text lines under the pointer — the
+    // coordinate math below would resolve garbage. The grid owns itself.
+    if (tableGridCoversPos(this.view.state, pos)) {
       this.setResizeCursor(false)
       this.scheduleHide()
       return
@@ -173,6 +181,7 @@ export class TableControls {
     if (pos === null) return null
     const table = tableAt(this.view.state, pos)
     if (!table) return null
+    if (tableGridCoversPos(this.view.state, pos)) return null
     const line = this.view.state.doc.lineAt(pos)
     const offset = pos - line.from
     // posAtCoords snaps to the nearest side of the glyph, so the pipe is

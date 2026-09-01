@@ -153,6 +153,7 @@ export function installMenu(actions: MenuActions): void {
         { label: 'Toggle Typewriter Mode', click: () => sendCommand('toggle-typewriter') },
         { label: 'Toggle Focus Mode', click: () => sendCommand('toggle-focus') },
         { label: 'Toggle Line Numbers', click: () => sendCommand('toggle-line-numbers') },
+        { label: 'Toggle Table Grid', click: () => sendCommand('toggle-table-grid') },
         { type: 'separator' },
         { label: 'Larger Text', accelerator: 'CmdOrCtrl+Plus', click: () => sendCommand('text-larger') },
         { label: 'Smaller Text', accelerator: 'CmdOrCtrl+-', click: () => sendCommand('text-smaller') },

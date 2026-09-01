@@ -78,6 +78,7 @@ export type MenuCommand =
   | 'toggle-typewriter'
   | 'toggle-focus'
   | 'toggle-line-numbers'
+  | 'toggle-table-grid'
   | 'toggle-palette'
   | 'toggle-preview'
   | 'show-help'

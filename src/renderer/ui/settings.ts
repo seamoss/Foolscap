@@ -149,7 +149,8 @@ export class Settings {
       this.chip('Typewriter', modes.typewriter, () => modes.toggleTypewriter()),
       this.chip('Focus', modes.focus, () => modes.toggleFocus()),
       this.chip('Word count', modes.wordCount, () => modes.toggleWordCount()),
-      this.chip('Line numbers', modes.lineNumbers, () => modes.toggleLineNumbers())
+      this.chip('Line numbers', modes.lineNumbers, () => modes.toggleLineNumbers()),
+      this.chip('Table grid', modes.tableGrid, () => modes.toggleTableGrid())
     )
     return wrap
   }

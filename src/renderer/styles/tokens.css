@@ -74,6 +74,11 @@
   --radius-inline: 4px;
   /* Text inset from the edge of sunk fills (fences, blockquotes). */
   --pad-block: 0.4rem;
+  /* Cell inset for rendered tables (editor grid; preview uses the same
+   * values in base.css). */
+  --pad-table-cell: 0.35em 0.7em;
+  /* Ring around the grid cell being edited in place. */
+  --table-edit-ring: 2px;
   /* Floating chrome (table chip bar): window-edge clamp and gap above. */
   --edge-inset: 8px;
   --table-bar-gap: 6px;

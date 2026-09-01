@@ -42,6 +42,7 @@ import {
   toggleItalic,
   toggleStrikethrough
 } from './editor/format-commands'
+import { beginCellEditAt, finishCellEdit, posOutsideGrid } from './editor/live-preview/table-grid'
 import { createEditor } from './editor/setup'
 import helpMd from './help.md?raw'
 import { AutosaveScheduler, autosaveEnabled, setAutosaveEnabled } from './ui/autosave'
@@ -177,7 +178,10 @@ let previewGen = 0
 let previewEntering = false
 
 async function enterPreview(nearPos?: number): Promise<void> {
-  const at = nearPos ?? editor.view.state.selection.main.head
+  // A cell edit in flight commits now — the captured content must carry
+  // it — and its cell, not the parked CM caret, is where the reader was.
+  const cellPos = finishCellEdit(editor.view)
+  const at = nearPos ?? cellPos ?? editor.view.state.selection.main.head
   const gen = ++previewGen
   previewEntering = true
   try {
@@ -229,7 +233,15 @@ function exitPreview(pos?: number, screenTop?: number): void {
             yMargin: Math.max(0, target.top - editor.view.scrollDOM.getBoundingClientRect().top)
           })
         : EditorView.scrollIntoView(anchor, { y: 'center' })
-    editor.view.dispatch({ selection: { anchor }, effects })
+    // A double-click that lands inside a grid-rendered table opens THAT
+    // cell for editing instead of dropping the caret into pipe source —
+    // and the cell then holds focus, so don't steal it back. A plain ⌘E
+    // exit that merely lands near a table parks the caret just outside.
+    if (pos !== undefined && beginCellEditAt(editor.view, anchor, effects, target.top)) return
+    editor.view.dispatch({
+      selection: { anchor: posOutsideGrid(editor.view.state, anchor) },
+      effects
+    })
   }
   editor.view.focus()
 }
@@ -338,6 +350,7 @@ window.foolscap.onCommand((command) => {
   else if (command === 'toggle-typewriter') modes.toggleTypewriter()
   else if (command === 'toggle-focus') modes.toggleFocus()
   else if (command === 'toggle-line-numbers') modes.toggleLineNumbers()
+  else if (command === 'toggle-table-grid') modes.toggleTableGrid()
   else if (command === 'toggle-palette') palette.toggle()
   else if (command === 'toggle-preview') togglePreview()
   else if (command === 'show-help') toggleHelp()
@@ -387,6 +400,7 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'focus', title: 'Toggle Focus Mode', run: () => modes.toggleFocus() },
   { id: 'wordcount', title: 'Toggle Word Count', run: () => modes.toggleWordCount() },
   { id: 'line-numbers', title: 'Toggle Line Numbers', run: () => modes.toggleLineNumbers() },
+  { id: 'table-grid', title: 'Toggle Table Grid', run: () => modes.toggleTableGrid() },
   { id: 'settings', title: 'Settings…', hint: `${mod},`, run: () => settings.toggle() },
   { id: 'check-updates', title: 'Check for Updates…', run: () => checkUpdatesNow() },
   { id: 'print', title: 'Print…', hint: `${mod}P`, run: () => window.foolscap.exec('file-print') },

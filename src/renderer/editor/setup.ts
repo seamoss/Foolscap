@@ -18,6 +18,7 @@ import {
 import { createFindPanel } from '../ui/find'
 import { lineNumbersExtension } from './line-numbers'
 import { docDirFacet, livePreview } from './live-preview/index'
+import { tableGridExtension } from './live-preview/table-grid'
 import { pasteImage } from './paste-image'
 import { tableKeymap, tableNormalizer } from './table-commands'
 import { foolscapTheme } from './theme'
@@ -75,6 +76,10 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): EditorHan
     EditorView.lineWrapping,
     lineNumbersExtension(),
     markdown({ base: markdownLanguage }),
+    /* Before the main keymap: the grid's ArrowUp/Down entry bindings must
+     * outrank defaultKeymap's cursor motion (they yield by returning false
+     * when no grid is adjacent). */
+    tableGridExtension(),
     search({ top: true, createPanel: createFindPanel }),
     /* Tables own Tab first; indentWithTab catches the rest — without it
      * Tab falls through to the browser's focus-move and the caret leaves
