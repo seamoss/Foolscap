@@ -721,11 +721,12 @@ window.foolscap.onLoad((doc) => {
   }
   docs.set(doc.docId, opened)
   if (doc.docId === displayedId) {
-    // A reload of the visible document replaces the buffer in place; so
-    // does a file opening into the untitled tab already showing.
+    // A reload of the visible document replaces the buffer in place and
+    // leaves the scroll alone; a file opening into the untitled tab already
+    // showing lands where it was last left.
     hideConflictBar()
     editor.view.setState(state)
-    restoreView(opened)
+    if (opened.restoreTop !== null) restoreView(opened)
     outline.refresh()
     modes.refresh()
   } else if (displayedId === null || tabsState?.active === doc.docId) {
