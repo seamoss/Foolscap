@@ -368,6 +368,15 @@ window.foolscap.onCommand((command) => {
 })
 
 const mod = window.foolscap.platform === 'darwin' ? '⌘' : 'Ctrl+'
+const revealLabel = window.foolscap.platform === 'darwin' ? 'Reveal in Finder' : 'Show in Folder'
+
+/* Commands that need a file behind the document: an untitled draft gets
+ * told, not silently ignored. */
+function withPath(run: (path: string) => void): void {
+  const path = displayedDoc()?.path
+  if (path) run(path)
+  else showToast('Save the document first — an untitled draft has no file yet.')
+}
 
 const paletteCommands = (): PaletteCommand[] => [
   { id: 'new-tab', title: 'New Tab', hint: `${mod}T`, run: () => window.foolscap.exec('tab-new') },
@@ -377,6 +386,16 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'save', title: 'Save', hint: `${mod}S`, run: () => window.foolscap.exec('file-save') },
   { id: 'save-as', title: 'Save As…', run: () => window.foolscap.exec('file-save-as') },
   { id: 'versions', title: 'Browse Versions…', run: () => void versions.open() },
+  { id: 'reveal', title: revealLabel, run: () => withPath(() => window.foolscap.exec('file-reveal')) },
+  {
+    id: 'copy-path',
+    title: 'Copy Path',
+    run: () =>
+      withPath(() => {
+        window.foolscap.exec('file-copy-path')
+        showToast('Path copied.')
+      })
+  },
   {
     id: 'find',
     title: 'Find & Replace',

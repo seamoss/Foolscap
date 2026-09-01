@@ -126,6 +126,8 @@ export type AppCommand =
   | 'export-html'
   | 'export-pdf'
   | 'file-print'
+  | 'file-reveal'
+  | 'file-copy-path'
   | 'update-restart'
 
 export const IPC = {

@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
+import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import type { FSWatcher } from 'chokidar'
 import { basename, dirname, join } from 'node:path'
 import {
@@ -410,6 +410,17 @@ export class TabSession {
 
   private docName(): string {
     return this.path ? basename(this.path).replace(/\.(md|markdown|mdx)$/i, '') : 'Untitled'
+  }
+
+  /* The frameless window has no proxy icon, so these are the only routes
+   * from a document to its file. Both are quiet no-ops for untitled tabs;
+   * the palette says why before it gets here. */
+  reveal(): void {
+    if (this.path) shell.showItemInFolder(this.path)
+  }
+
+  copyPath(): void {
+    if (this.path) clipboard.writeText(this.path)
   }
 
   private async pickExportPath(label: string, ext: string): Promise<string | null> {

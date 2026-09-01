@@ -65,6 +65,10 @@ export function installMenu(actions: MenuActions): void {
       label: 'Browse Versions…',
       click: () => sendCommand('browse-versions')
     },
+    {
+      label: isMac ? 'Reveal in Finder' : 'Show in Folder',
+      click: () => actions.focused()?.activeTab?.reveal()
+    },
     { type: 'separator' },
     {
       label: 'Export',

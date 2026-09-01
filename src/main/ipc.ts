@@ -65,6 +65,10 @@ export function registerIpc(
         return void session?.activeTab?.exportPdf()
       case 'file-print':
         return void session?.activeTab?.printDoc()
+      case 'file-reveal':
+        return session?.activeTab?.reveal()
+      case 'file-copy-path':
+        return session?.activeTab?.copyPath()
       case 'update-restart':
         return actions.updateRestart()
     }
