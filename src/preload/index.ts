@@ -32,6 +32,8 @@ const api: FoolscapApi = {
     ipcRenderer.invoke(IPC.pasteImage, bytes, ext, name ?? null),
   pathForFile: (file: File) => webUtils.getPathForFile(file),
   openDropped: (path: string) => ipcRenderer.send(IPC.openDropped, path),
+  recentFiles: () => ipcRenderer.invoke(IPC.recentFiles),
+  openRecent: (path: string) => ipcRenderer.send(IPC.openRecent, path),
   loadCustomTheme: (): Promise<string | null> => ipcRenderer.invoke(IPC.loadCustomTheme),
   tabActivate: (docId) => ipcRenderer.send(IPC.tabActivate, docId),
   tabClose: (docId) => ipcRenderer.send(IPC.tabClose, docId),

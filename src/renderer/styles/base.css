@@ -343,6 +343,12 @@ body {
 .palette-hint {
   color: var(--ink-ghost);
   font-variant-numeric: tabular-nums;
+  /* Recents carry a folder as the hint; a deep path must not widen the row. */
+  max-width: 55%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .palette-empty {

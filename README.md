@@ -23,7 +23,7 @@ Foolscap is a single beautiful writing surface for markdown files. The buffer is
 - Atomic saves — temp file, fsync, rename; a crash can never truncate your manuscript
 - Autosave with a browsable version history (File ▸ Browse Versions…), restores that ⌘Z undoes, and an undo stack that survives relaunch
 - External-change watching: clean buffers reload silently, dirty buffers get a choice
-- Command palette (⌘K), find & replace, outline panel, typewriter and focus modes, optional line numbers, a word count that counts the selection
+- Command palette (⌘K) with recent files a keystroke away, find & replace, outline panel, typewriter and focus modes, optional line numbers, a word count that counts the selection
 - Seven themes — from the house Ledger and Plate to GitHub, Vercel, and VS Code — plus load-your-own-CSS custom themes ([THEMING.md](THEMING.md))
 - Ten writing faces, five serif and five sans; one font per page, and code keeps [Ioskeley Mono](https://github.com/ahatem/IoskeleyMono)
 - Paste images from the clipboard, or drop them from Finder, into a sibling `assets/` folder

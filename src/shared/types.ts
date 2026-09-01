@@ -36,6 +36,14 @@ export interface DocPosition {
   top: number
 }
 
+/* A recently visited file, as the palette lists it: the name to match on,
+ * the folder (home abbreviated) as the hint. */
+export interface RecentFile {
+  path: string
+  name: string
+  dir: string
+}
+
 /* One entry in a document's version history — a full snapshot in userData,
  * recorded around saves (see src/main/history-store.ts). */
 export interface HistoryEntry {
@@ -160,6 +168,8 @@ export const IPC = {
   exec: 'app:exec',
   pasteImage: 'image:paste',
   openDropped: 'file:open-dropped',
+  recentFiles: 'files:recent',
+  openRecent: 'file:open-recent',
   loadCustomTheme: 'theme:load-custom',
   tabActivate: 'tabs:activate',
   tabClose: 'tabs:close',
@@ -211,6 +221,11 @@ export interface FoolscapApi {
   /* Absolute path of a dropped File (webUtils; File.path is long gone). */
   pathForFile(file: File): string
   openDropped(path: string): void
+  /* Recently visited files that still exist, newest first, for ⌘K. */
+  recentFiles(): Promise<RecentFile[]>
+  /* Open one of them — routed like a launch argument, so a tab already
+   * showing it wins wherever it lives. */
+  openRecent(path: string): void
   /* Pick and read a custom theme css file; null if cancelled. */
   loadCustomTheme(): Promise<string | null>
   /* Tab intents — the renderer's bar clicks and drags. */

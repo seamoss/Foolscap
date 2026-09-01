@@ -236,6 +236,7 @@ if (!gotLock) {
       const path = closedTabs.pop(fileExists)
       if (path) openFileSmart(path)
     },
+    openFile: (path) => openFileSmart(path),
     updateRestart: () => void persistAndQuit(true)
   }
 

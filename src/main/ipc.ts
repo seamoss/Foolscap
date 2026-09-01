@@ -1,5 +1,8 @@
 import { dialog, ipcMain, shell } from 'electron'
-import { DROPPABLE_FILE, IPC, type AppCommand, type ConflictChoice } from '../shared/types'
+import { existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { basename, dirname } from 'node:path'
+import { DROPPABLE_FILE, IPC, type AppCommand, type ConflictChoice, type RecentFile } from '../shared/types'
 import { readTextFile } from './files'
 import type { MenuActions } from './menu'
 import { positions } from './positions-store'
@@ -7,6 +10,9 @@ import { setAutosaveEnabled, type WindowSession } from './session'
 import { checkNow } from './updater'
 
 export const OPENABLE_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
+
+/* Enough to find Tuesday's file; not a file manager. */
+const RECENTS_SHOWN = 10
 
 /* Renderer → main channels, routed to the sender's window session — with
  * several windows open, e.sender.id is the only truth about which window is
@@ -91,6 +97,21 @@ export function registerIpc(
     const tab = sessionFor(e.sender.id)?.activeTab
     if (!tab || !/^[a-z0-9]+$/.test(ext)) return null
     return tab.savePastedImage(bytes, ext, typeof name === 'string' ? name : null)
+  })
+  ipcMain.handle(IPC.recentFiles, (): RecentFile[] => {
+    const home = homedir()
+    return positions.recent(RECENTS_SHOWN, existsSync).map((path) => {
+      const dir = dirname(path)
+      return {
+        path,
+        name: basename(path),
+        dir: dir === home || dir.startsWith(home + '/') ? '~' + dir.slice(home.length) : dir
+      }
+    })
+  })
+  ipcMain.on(IPC.openRecent, (_e, path: string) => {
+    // Only a path the store handed out — the renderer names nothing else.
+    if (typeof path === 'string' && positions.has(path) && existsSync(path)) actions.openFile(path)
   })
   ipcMain.on(IPC.openDropped, (e, path: string) => {
     // Same filter the renderer applies to the drop; main must not trust it.

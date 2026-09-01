@@ -11,6 +11,9 @@ export interface MenuActions {
   open(): void
   /* ⇧⌘T: the most recently closed file-backed tab, wherever it lived. */
   reopenClosedTab(): void
+  /* A path the app already knows (recents): the tab showing it wins
+   * wherever it lives, otherwise the focused window opens it. */
+  openFile(path: string): void
   help(): void
   /* Persist every session, then hand the process to the updater. */
   updateRestart(): void

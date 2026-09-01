@@ -191,6 +191,7 @@ export class TabSession {
     this.rewatch()
     this.load(content)
     app.addRecentDocument(path)
+    positions.touch(path)
   }
 
   /* The blank document a fresh tab opens as. */
@@ -273,6 +274,7 @@ export class TabSession {
     this.win.webContents.send(IPC.saved, saved)
     app.addRecentDocument(target)
     if (pathChanged) {
+      positions.touch(target)
       // A new path starts a new history: no baseline (there is no prior
       // state of THIS file to protect), and the first save snapshots now.
       this.baselineSnapshotted = true

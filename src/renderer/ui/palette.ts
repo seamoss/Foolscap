@@ -39,6 +39,10 @@ export class Palette {
     private readonly onClose: () => void
   ) {}
 
+  get visible(): boolean {
+    return this.overlay !== null
+  }
+
   toggle(): void {
     if (this.overlay) {
       this.close()

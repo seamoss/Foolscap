@@ -6,7 +6,11 @@ import { atomicWriteFile } from './files'
  * — so a file reopens where you left it. userData/positions.json, beside
  * the session and history stores; the newest files up to the cap, the
  * rest age out. Offsets, not pixels: a changed text size or window width
- * can't strand the view, and a shortened file just clamps. */
+ * can't strand the view, and a shortened file just clamps.
+ *
+ * The visit timestamps double as the recents list: every file opened or
+ * looked at is here, newest first, and the palette's "Open: …" entries
+ * read from it — no second list to keep in step. */
 
 interface Stored extends DocPosition {
   /* Epoch ms of the last visit — the pruning order. */
@@ -73,6 +77,40 @@ export class PositionsStore {
   recall(path: string): DocPosition | null {
     const found = this.entries[path]
     return found ? { head: found.head, top: found.top } : null
+  }
+
+  has(path: string): boolean {
+    return path in this.entries
+  }
+
+  /* An open counts as a visit even before any position is recorded, so a
+   * file lands in recents the moment it is opened. */
+  touch(path: string, now = Date.now()): void {
+    const found = this.entries[path]
+    this.remember(path, found ? { head: found.head, top: found.top } : { head: 0, top: 0 }, now)
+  }
+
+  /* Most recently visited first, skipping files that no longer exist (and
+   * forgetting them, so they never come back as ghosts). */
+  recent(limit: number, exists: (path: string) => boolean): string[] {
+    const ordered = Object.entries(this.entries)
+      .sort((a, b) => b[1].at - a[1].at)
+      .map(([path]) => path)
+    const out: string[] = []
+    let forgot = false
+    for (const path of ordered) {
+      if (out.length >= limit) break
+      if (exists(path)) out.push(path)
+      else {
+        delete this.entries[path]
+        forgot = true
+      }
+    }
+    if (forgot) {
+      clearTimeout(this.writeTimer)
+      this.writeTimer = setTimeout(() => void this.flush(), WRITE_DELAY_MS)
+    }
+    return out
   }
 
   remember(path: string, position: DocPosition, now = Date.now()): void {

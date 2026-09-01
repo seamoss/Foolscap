@@ -58,6 +58,24 @@ describe('PositionsStore', () => {
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ '/a.md': { head: 42, top: 7, at: 1000 } })
   })
 
+  it('lists recents newest first, forgetting files that vanished', async () => {
+    const store = new PositionsStore()
+    await store.open(join(dir, 'positions.json'))
+    store.touch('/first.md', 1)
+    store.remember('/second.md', { head: 5, top: 0 }, 2)
+    store.touch('/gone.md', 3)
+    store.touch('/third.md', 4)
+    expect(store.recent(10, (p) => p !== '/gone.md')).toEqual(['/third.md', '/second.md', '/first.md'])
+    expect(store.has('/gone.md')).toBe(false)
+    expect(store.recent(2, () => true)).toEqual(['/third.md', '/second.md'])
+    // A touch refreshes recency without disturbing the position.
+    store.touch('/second.md', 9)
+    expect(store.recent(1, () => true)).toEqual(['/second.md'])
+    expect(store.recall('/second.md')).toEqual({ head: 5, top: 0 })
+    expect(store.recall('/first.md')).toEqual({ head: 0, top: 0 })
+    await store.flush()
+  })
+
   it('refuses non-offsets and prunes to its cap by recency', async () => {
     const store = new PositionsStore(2)
     await store.open(join(dir, 'positions.json'))

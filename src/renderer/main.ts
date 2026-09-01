@@ -34,7 +34,7 @@ import { openSearchPanel } from '@codemirror/search'
 import type { EditorState, StateCommand, TransactionSpec } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { renderMarkdown } from '../shared/markdown'
-import { NEW_DOC_CURSOR, NEW_DOC_TEMPLATE, type DocPosition, type TabsState } from '../shared/types'
+import { NEW_DOC_CURSOR, NEW_DOC_TEMPLATE, type DocPosition, type RecentFile, type TabsState } from '../shared/types'
 import {
   insertLink,
   toggleBold,
@@ -396,7 +396,7 @@ window.foolscap.onCommand((command) => {
   else if (command === 'toggle-focus') modes.toggleFocus()
   else if (command === 'toggle-line-numbers') modes.toggleLineNumbers()
   else if (command === 'toggle-table-grid') modes.toggleTableGrid()
-  else if (command === 'toggle-palette') palette.toggle()
+  else if (command === 'toggle-palette') void togglePalette()
   else if (command === 'toggle-preview') togglePreview()
   else if (command === 'show-help') toggleHelp()
   else if (command === 'text-larger') adjustTextSize(1)
@@ -429,6 +429,12 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'reopen-tab', title: 'Reopen Closed Tab', hint: `⇧${mod}T`, run: () => window.foolscap.exec('tab-reopen') },
   { id: 'new-window', title: 'New Window', hint: `${mod}N`, run: () => window.foolscap.exec('window-new') },
   { id: 'open', title: 'Open…', hint: `${mod}O`, run: () => window.foolscap.exec('file-open') },
+  ...recents.map((file) => ({
+    id: `recent:${file.path}`,
+    title: `Open: ${file.name}`,
+    hint: file.dir,
+    run: () => window.foolscap.openRecent(file.path)
+  })),
   { id: 'save', title: 'Save', hint: `${mod}S`, run: () => window.foolscap.exec('file-save') },
   { id: 'save-as', title: 'Save As…', run: () => window.foolscap.exec('file-save-as') },
   { id: 'versions', title: 'Browse Versions…', run: () => void versions.open() },
@@ -489,6 +495,23 @@ const paletteCommands = (): PaletteCommand[] => [
 ]
 
 const palette = new Palette(paletteCommands, () => editor.view.focus())
+
+/* Recents ride into the palette as "Open: name" entries, fetched fresh
+ * each time it opens — the list is main's, and files come and go. */
+let recents: RecentFile[] = []
+
+async function togglePalette(): Promise<void> {
+  if (palette.visible) {
+    palette.close()
+    return
+  }
+  try {
+    recents = await window.foolscap.recentFiles()
+  } catch {
+    recents = []
+  }
+  palette.toggle()
+}
 
 /* Dropped images: in the editor they land where the drop cursor pointed,
  * the same inline link a paste makes. The preview page has no cursor, so
@@ -554,7 +577,7 @@ if (!localStorage.getItem('foolscap:first-run-done')) {
 window.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    palette.toggle()
+    void togglePalette()
   } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'o') {
     // Redundant with the menu accelerator — whichever fires first wins,
     // the other never sees the event.

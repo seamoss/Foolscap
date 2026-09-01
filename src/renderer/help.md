@@ -41,10 +41,10 @@ Everything lives in the command palette — press `⌘K` and type.
 | `⌘N` | New window |
 | `⌘T` | New tab — documents can share a window; drag a tab out to split |
 | `⇧⌘T` | Reopen the tab you just closed |
-| `⌘O` | Open a file (or just drop one on the window) |
+| `⌘O` | Open a file (or just drop one on the window); recent files are in `⌘K` as *Open: name* |
 | `⌘S` | Save (atomic: your file is never half-written; autosave does this for you) |
 | `⌘P` | Print |
-| `⌘,` | Settings — theme, font, text size |
+| `⌘,` | Settings — theme, font, text size, writing modes, saving, updates |
 | `⌘+` / `⌘−` | Text larger / smaller (`⌘0` resets) |
 | `⇧⌘/` | This document |
 
