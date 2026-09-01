@@ -20,6 +20,7 @@ import { lineNumbersExtension } from './line-numbers'
 import { docDirFacet, livePreview } from './live-preview/index'
 import { tableGridExtension } from './live-preview/table-grid'
 import { pasteImage } from './paste-image'
+import { pasteLink } from './paste-link'
 import { tableKeymap, tableNormalizer } from './table-commands'
 import { foolscapTheme } from './theme'
 
@@ -92,6 +93,7 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): EditorHan
     livePreview(),
     tableNormalizer(),
     pasteImage(hooks.onNoDocumentForPaste, hooks.onPasteFailed),
+    pasteLink(),
     foolscapTheme()
   ]
 
