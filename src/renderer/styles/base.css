@@ -814,6 +814,18 @@ body {
   opacity: 1;
 }
 
+/* The table-grid widget is not a .cm-line, so it needs its own dim — and
+ * its own active state: a cell being edited in place (.fs-editing) is the
+ * writer's focus even though the CM cursor never enters the table. */
+.focus-mode .fs-table-grid {
+  opacity: 0.3;
+  transition: opacity var(--dur-mark) var(--ease-mark);
+}
+
+.focus-mode .fs-table-grid.fs-editing {
+  opacity: 1;
+}
+
 /* Word count: a corner whisper — fades in on mouse move, out after 2s. */
 .wordcount {
   position: fixed;

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   adjustColumnWidth,
   cellRangesOfLine,
+  commitCell,
+  escapeCellText,
+  setCell,
   columnDisplayWidth,
   columnWidth,
   setColumnWidth,
@@ -229,5 +232,91 @@ describe('transforms', () => {
       ['pear', '12', '0.85']
     ])
     expect(insertRow(model, -1).rows[0]).toEqual(['', '', ''])
+  })
+})
+
+describe('setCell — one cell, grid-DOM row indexing (0 = header)', () => {
+  const model = parseTable(CLEAN)
+
+  it('replaces a header cell at row 0', () => {
+    expect(setCell(model, 0, 1, 'Count').header).toEqual(['Name', 'Count', 'Price'])
+  })
+
+  it('replaces first and last body cells', () => {
+    expect(setCell(model, 1, 0, 'plum').rows[0]).toEqual(['plum', '3', '1.20'])
+    expect(setCell(model, 2, 2, '0.99').rows[1]).toEqual(['pear', '12', '0.99'])
+  })
+
+  it('empty to text and text to empty', () => {
+    expect(setCell(model, 1, 1, '').rows[0]).toEqual(['apple', '', '1.20'])
+    expect(setCell(setCell(model, 1, 1, ''), 1, 1, '5').rows[0]).toEqual(['apple', '5', '1.20'])
+  })
+
+  it('out-of-range row or column is identity', () => {
+    expect(setCell(model, 3, 0, 'x')).toEqual(model)
+    expect(setCell(model, -1, 0, 'x')).toEqual(model)
+    expect(setCell(model, 0, 3, 'x')).toEqual(model)
+    expect(setCell(model, 0, -1, 'x')).toEqual(model)
+  })
+
+  it('does not mutate its input', () => {
+    setCell(model, 1, 0, 'plum')
+    expect(model.rows[0]).toEqual(['apple', '3', '1.20'])
+  })
+})
+
+describe('escapeCellText — raw cell DOM text to committable content', () => {
+  it('identity on plain text and on already-escaped pipes', () => {
+    expect(escapeCellText('hello world')).toBe('hello world')
+    expect(escapeCellText('a \\| b')).toBe('a \\| b')
+  })
+
+  it('escapes a bare pipe so it edits the cell instead of splitting it', () => {
+    expect(escapeCellText('a | b')).toBe('a \\| b')
+  })
+
+  it('flattens newlines to single spaces and trims', () => {
+    expect(escapeCellText('  line one\nline two  ')).toBe('line one line two')
+    expect(escapeCellText('a\r\n\r\nb')).toBe('a b')
+  })
+
+  it('a trailing backslash before a typed pipe reads as one escaped pipe (GFM ambiguity)', () => {
+    expect(escapeCellText('path\\|col')).toBe('path\\|col')
+  })
+})
+
+describe('commitCell — the whole pure commit pipeline', () => {
+  it('one changed cell yields a fully normalized table', () => {
+    const next = commitCell(MESSY, 2, 0, 'plum')
+    expect(next).toBe(normalizeTable(MESSY).replace('pear ', 'plum '))
+  })
+
+  it('null when the raw text matches the cell (no-op commit)', () => {
+    expect(commitCell(CLEAN, 1, 0, 'apple')).toBeNull()
+    expect(commitCell(CLEAN, 1, 0, '  apple  ')).toBeNull()
+  })
+
+  it('a widened column survives a commit', () => {
+    const widened = formatTable(setColumnWidth(parseTable(CLEAN), 0, 12))
+    const next = commitCell(widened, 1, 0, 'fig')
+    expect(next).not.toBeNull()
+    expect(columnDisplayWidth(parseTable(next ?? ''), 0)).toBe(12)
+  })
+
+  it('a typed pipe round-trips as the same single cell', () => {
+    const next = commitCell(CLEAN, 1, 0, 'a | b')
+    expect(parseTable(next ?? '').rows[0]?.[0]).toBe('a \\| b')
+    expect(parseTable(next ?? '').rows[0]).toHaveLength(3)
+  })
+
+  it('Enter on the last row: commit plus insertRow composes cleanly', () => {
+    const committed = commitCell(CLEAN, 2, 1, '20')
+    const withRow = formatTable(insertRow(parseTable(committed ?? ''), 1))
+    const m = parseTable(withRow)
+    expect(m.rows).toEqual([
+      ['apple', '3', '1.20'],
+      ['pear', '20', '0.85'],
+      ['', '', '']
+    ])
   })
 })

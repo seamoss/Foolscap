@@ -128,6 +128,37 @@ const editorTheme = EditorView.theme({
     fontWeight: 'var(--weight-ui)'
   },
 
+  /* ---- Table grid: the block widget shown while the selection is outside
+   * a table. Mirrors the preview pane's table (base.css .preview-doc).
+   * Padding, never margin: vertical margins on a block widget corrupt
+   * CodeMirror's height measurement. ---- */
+  '.fs-table-grid': {
+    padding: 'var(--space-paragraph) 0',
+    cursor: 'text'
+  },
+  '.fs-table-grid table': {
+    borderCollapse: 'collapse',
+    width: '100%',
+    tableLayout: 'fixed'
+  },
+  '.fs-table-grid th, .fs-table-grid td': {
+    border: '1px solid var(--rule)',
+    padding: 'var(--pad-table-cell)',
+    textAlign: 'left',
+    overflowWrap: 'break-word'
+  },
+  '.fs-table-grid th': {
+    fontWeight: 'var(--weight-ui)',
+    background: 'var(--paper-sunk)'
+  },
+  /* The cell being edited in place: an inset ring (outline-offset pulls it
+   * inward) so focusing a cell never shifts layout. */
+  '.fs-table-grid .fs-editing-cell': {
+    outline: 'var(--table-edit-ring) solid var(--accent)',
+    outlineOffset: 'calc(-1 * var(--table-edit-ring))',
+    caretColor: 'var(--accent)'
+  },
+
   /* ---- Blockquotes: sunk paper fill ---- */
   '.fs-quote': {
     background: 'var(--paper-sunk)',

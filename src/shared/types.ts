@@ -77,6 +77,7 @@ export type MenuCommand =
   | 'toggle-outline'
   | 'toggle-typewriter'
   | 'toggle-focus'
+  | 'toggle-table-grid'
   | 'toggle-palette'
   | 'toggle-preview'
   | 'show-help'

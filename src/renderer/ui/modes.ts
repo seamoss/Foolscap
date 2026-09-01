@@ -1,4 +1,5 @@
 import { EditorView, type ViewUpdate } from '@codemirror/view'
+import { setTableGrid, syncTableGrid, tableGridOn } from '../editor/live-preview/table-grid'
 import { tokenMs } from './tokens'
 
 /* Writing modes and the theme switch. All toggles, no chrome (§4.4):
@@ -239,6 +240,17 @@ export class Modes {
     if (!this.wordCount) this.countEl.classList.remove('visible')
   }
 
+  /* Persistence lives with the compartment in editor/live-preview/
+   * table-grid.ts, so this is a getter, not a field like the toggles
+   * above — one source of truth instead of a copy to keep in step. */
+  get tableGrid(): boolean {
+    return tableGridOn()
+  }
+
+  toggleTableGrid(): void {
+    setTableGrid(this.view, !tableGridOn())
+  }
+
   handleUpdate(update: ViewUpdate): void {
     if (!update.docChanged) return
     if (this.typewriter) {
@@ -251,6 +263,9 @@ export class Modes {
 
   refresh(): void {
     this.recount()
+    // Tab switches swap whole states in with setState; one built before the
+    // user toggled the table grid carries the stale choice.
+    syncTableGrid(this.view)
   }
 
   private center(): void {

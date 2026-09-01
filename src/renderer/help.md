@@ -53,9 +53,12 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
 
 ## Writing
 
-- **Tables** — `Tab` walks cells, `Enter` adds a row, hovering shows
-  column controls. Leave a table and Foolscap tidies its pipes into
-  aligned columns — in the file itself, so it's tidy everywhere.
+- **Tables** — a table shows as an actual grid, and you edit it like one:
+  click a cell and type. `Tab` walks cells, `Enter` moves down a column
+  (each adds a row at the edge), `Escape` cancels; the file updates as
+  you move, always tidied. `⌥`-click a cell for the raw pipes — that's
+  where hovering shows column controls and pipe edges drag. Settings ▸
+  Writing turns the grid off entirely.
 - **Images** — paste a screenshot; it lands in an `assets/` folder next to
   your document with a relative link. Arrow into an image to see its
   markdown; arrow out to see the picture.

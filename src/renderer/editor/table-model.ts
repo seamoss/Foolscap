@@ -308,3 +308,52 @@ export function insertRow(model: TableModel, after: number): TableModel {
     rows: [...model.rows.slice(0, at), empty, ...model.rows.slice(at)]
   }
 }
+
+/* ---- In-place cell editing (table grid): the pure commit pipeline ---- */
+
+/* Replace one cell's content. Row indexing matches the grid widget's DOM:
+ * row 0 is the header, row n >= 1 is body row n - 1 (the delimiter is not
+ * a row). Out-of-range coordinates return the model unchanged. */
+export function setCell(model: TableModel, row: number, col: number, text: string): TableModel {
+  if (col < 0 || col >= model.header.length) return model
+  if (row === 0) {
+    return { ...model, header: model.header.map((c, i) => (i === col ? text : c)) }
+  }
+  const body = row - 1
+  if (body < 0 || body >= model.rows.length) return model
+  return {
+    ...model,
+    rows: model.rows.map((r, i) => (i === body ? r.map((c, j) => (j === col ? text : c)) : r))
+  }
+}
+
+/* Raw cell-DOM text -> committable content: newlines (paste can carry
+ * them) flatten to single spaces, edges trim, and bare pipes escape so a
+ * typed | edits the cell instead of splitting it. An existing \| passes
+ * through untouched — the same already-escaped reading splitRow applies,
+ * which also means a cell ending in a literal backslash followed by a
+ * typed pipe reads as one escaped pipe; that ambiguity is GFM's own. */
+export function escapeCellText(raw: string): string {
+  const flat = raw.replace(/\s*\r?\n\s*/g, ' ').replace(/\r/g, ' ').trim()
+  let out = ''
+  for (let i = 0; i < flat.length; i++) {
+    const ch = flat[i]
+    if (ch === '\\' && flat[i + 1] === '|') {
+      out += '\\|'
+      i++
+    } else if (ch === '|') {
+      out += '\\|'
+    } else {
+      out += ch
+    }
+  }
+  return out
+}
+
+/* The whole commit pipeline for one edited cell: parse, sanitize, set,
+ * reformat. Null when the result is byte-identical to the input — a no-op
+ * commit costs the caller nothing (no transaction, no widget rebuild). */
+export function commitCell(text: string, row: number, col: number, raw: string): string | null {
+  const next = formatTable(setCell(parseTable(text), row, col, escapeCellText(raw)))
+  return next === text ? null : next
+}
