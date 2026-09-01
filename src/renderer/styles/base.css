@@ -467,6 +467,25 @@ body {
   margin: var(--space-paragraph) 0;
 }
 
+/* The page sets itself. Chromium's paragraph-level line breaking evens the
+ * rag and refuses orphans; hyphenation comes from the OS dictionaries for
+ * the document language (index.html's lang — English until the file says
+ * otherwise). Headings balance instead. Code and links keep their words
+ * whole: a hyphen invented inside a URL or an identifier is a lie. */
+.preview-doc p,
+.preview-doc li,
+.preview-doc blockquote,
+.preview-doc td,
+.preview-doc th {
+  text-wrap: pretty;
+  hyphens: auto;
+}
+
+.preview-doc code,
+.preview-doc a {
+  hyphens: manual;
+}
+
 /* GFM task lists: themed checkboxes, no stray bullet beside them. */
 .preview-doc input[type='checkbox'] {
   accent-color: var(--accent);
@@ -486,6 +505,7 @@ body {
   font-family: var(--font-heading);
   font-weight: var(--weight-heading);
   margin: 1.2em 0 0.4em;
+  text-wrap: balance;
 }
 
 .preview-doc h1 {
