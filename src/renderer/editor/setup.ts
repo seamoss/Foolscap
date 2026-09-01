@@ -16,6 +16,7 @@ import {
   type ViewUpdate
 } from '@codemirror/view'
 import { createFindPanel } from '../ui/find'
+import { lineNumbersExtension } from './line-numbers'
 import { docDirFacet, livePreview } from './live-preview/index'
 import { pasteImage } from './paste-image'
 import { tableKeymap, tableNormalizer } from './table-commands'
@@ -72,6 +73,7 @@ export function createEditor(parent: HTMLElement, hooks: EditorHooks): EditorHan
     dropCursor(),
     EditorState.allowMultipleSelections.of(true),
     EditorView.lineWrapping,
+    lineNumbersExtension(),
     markdown({ base: markdownLanguage }),
     search({ top: true, createPanel: createFindPanel }),
     /* Tables own Tab first; indentWithTab catches the rest — without it

@@ -148,7 +148,8 @@ export class Settings {
     row.append(
       this.chip('Typewriter', modes.typewriter, () => modes.toggleTypewriter()),
       this.chip('Focus', modes.focus, () => modes.toggleFocus()),
-      this.chip('Word count', modes.wordCount, () => modes.toggleWordCount())
+      this.chip('Word count', modes.wordCount, () => modes.toggleWordCount()),
+      this.chip('Line numbers', modes.lineNumbers, () => modes.toggleLineNumbers())
     )
     return wrap
   }
