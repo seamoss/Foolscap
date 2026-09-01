@@ -119,6 +119,7 @@ export type AppCommand =
   | 'window-new'
   | 'tab-new'
   | 'tab-close'
+  | 'tab-reopen'
   | 'help-window'
   | 'file-open'
   | 'file-save'

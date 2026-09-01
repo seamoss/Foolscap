@@ -381,6 +381,7 @@ function withPath(run: (path: string) => void): void {
 const paletteCommands = (): PaletteCommand[] => [
   { id: 'new-tab', title: 'New Tab', hint: `${mod}T`, run: () => window.foolscap.exec('tab-new') },
   { id: 'close-tab', title: 'Close Tab', hint: `${mod}W`, run: () => window.foolscap.exec('tab-close') },
+  { id: 'reopen-tab', title: 'Reopen Closed Tab', hint: `⇧${mod}T`, run: () => window.foolscap.exec('tab-reopen') },
   { id: 'new-window', title: 'New Window', hint: `${mod}N`, run: () => window.foolscap.exec('window-new') },
   { id: 'open', title: 'Open…', hint: `${mod}O`, run: () => window.foolscap.exec('file-open') },
   { id: 'save', title: 'Save', hint: `${mod}S`, run: () => window.foolscap.exec('file-save') },

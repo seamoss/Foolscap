@@ -51,6 +51,8 @@ export function registerIpc(
         return session ? session.newTab() : actions.newTab()
       case 'tab-close':
         return session?.closeActiveTab()
+      case 'tab-reopen':
+        return actions.reopenClosedTab()
       case 'help-window':
         return actions.help()
       case 'file-open':

@@ -13,6 +13,7 @@ import {
 } from '../shared/types'
 import { renderExportHtml } from './export/html'
 import { printDocument, renderPdf } from './export/pdf'
+import { closedTabs } from './closed-tabs'
 import { atomicWriteFile, readTextFile, timestampName, watchFile } from './files'
 import { docKey, listSnapshots, pruneSnapshots, readSnapshot, writeSnapshot } from './history-store'
 import { acquireAccess, ensureFolderAccess, rememberBookmark } from './scoped'
@@ -675,6 +676,15 @@ export class WindowSession {
       }
     })
     window.on('closed', () => {
+      // Every file the window held is reopenable — active one first, so
+      // ⇧⌘T after a window close brings back what was showing.
+      const active = this.activeTab
+      for (const tab of this.tabs) {
+        const path = tab.getPath()
+        if (path && tab !== active) closedTabs.push(path)
+      }
+      const activePath = active?.getPath()
+      if (activePath) closedTabs.push(activePath)
       for (const tab of this.tabs) tab.dispose()
       this.tabs = []
     })
@@ -791,6 +801,8 @@ export class WindowSession {
       this.activate(docId) // the user should see what they're deciding about
       if (!(await tab.guardUnsaved())) return
     }
+    const path = tab.getPath()
+    if (path) closedTabs.push(path)
     this.removeTab(tab)
     tab.dispose()
   }

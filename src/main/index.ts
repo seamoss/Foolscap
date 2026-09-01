@@ -3,6 +3,7 @@ import { statSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathsFromArgv, type ArgvFilter } from './cli'
+import { closedTabs } from './closed-tabs'
 import { registerIpc } from './ipc'
 import { installMenu, type MenuActions } from './menu'
 import { WindowSession } from './session'
@@ -34,6 +35,16 @@ if (!gotLock) {
     isQuitting: () => quitting,
     onQuitCancelled: () => {
       quitting = false
+    }
+  }
+
+  // EACCES and friends count as gone: throwIfNoEntry only covers ENOENT,
+  // and a stat throw must never abort a launch or a reopen.
+  const fileExists = (path: string): boolean => {
+    try {
+      return statSync(path, { throwIfNoEntry: false }) !== undefined
+    } catch {
+      return false
     }
   }
 
@@ -207,6 +218,12 @@ if (!gotLock) {
       void (focusedSession() ?? boot()).openViaDialog()
     },
     help: () => boot().showHelpWhenReady(),
+    // Same routing as a launch argument: a tab already showing the file
+    // wins wherever it lives; otherwise the focused window gets it.
+    reopenClosedTab: () => {
+      const path = closedTabs.pop(fileExists)
+      if (path) openFileSmart(path)
+    },
     updateRestart: () => void persistAndQuit(true)
   }
 
@@ -289,15 +306,6 @@ if (!gotLock) {
     const restored = await loadSession(sessionFile())
     // Every unclosed window comes back — clean documents only if their file
     // still exists; dirty drafts always, the content outranks the file.
-    // EACCES and friends count as gone: throwIfNoEntry only covers ENOENT,
-    // and a stat throw here would abort the whole launch windowless.
-    const fileExists = (path: string): boolean => {
-      try {
-        return statSync(path, { throwIfNoEntry: false }) !== undefined
-      } catch {
-        return false
-      }
-    }
     const restorable = (restored ?? [])
       .map((win) => ({
         ...win,

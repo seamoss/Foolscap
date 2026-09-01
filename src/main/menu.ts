@@ -9,6 +9,8 @@ export interface MenuActions {
   newWindow(): void
   newTab(): void
   open(): void
+  /* ⇧⌘T: the most recently closed file-backed tab, wherever it lived. */
+  reopenClosedTab(): void
   help(): void
   /* Persist every session, then hand the process to the updater. */
   updateRestart(): void
@@ -50,6 +52,11 @@ export function installMenu(actions: MenuActions): void {
           }
         ] as MenuItemConstructorOptions[])
       : []),
+    {
+      label: 'Reopen Closed Tab',
+      accelerator: 'Shift+CmdOrCtrl+T',
+      click: () => actions.reopenClosedTab()
+    },
     { type: 'separator' },
     {
       label: 'Save',
