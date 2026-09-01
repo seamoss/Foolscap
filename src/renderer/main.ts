@@ -31,7 +31,7 @@ import './styles/themes/vercel.css'
 import './styles/themes/vscode.css'
 import './styles/base.css'
 import { openSearchPanel } from '@codemirror/search'
-import type { EditorState, StateCommand } from '@codemirror/state'
+import type { EditorState, StateCommand, TransactionSpec } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { renderMarkdown } from '../shared/markdown'
 import { NEW_DOC_CURSOR, NEW_DOC_TEMPLATE, type TabsState } from '../shared/types'
@@ -43,10 +43,11 @@ import {
   toggleStrikethrough
 } from './editor/format-commands'
 import { beginCellEditAt, finishCellEdit, posOutsideGrid } from './editor/live-preview/table-grid'
+import { imageBlockInsertion, imagesInline, insertDroppedImages } from './editor/paste-image'
 import { createEditor } from './editor/setup'
 import helpMd from './help.md?raw'
 import { AutosaveScheduler, autosaveEnabled, setAutosaveEnabled } from './ui/autosave'
-import { classifyDrop } from './ui/drop'
+import { classifyDrop, droppedImages } from './ui/drop'
 import {
   adjustTextSize,
   applyCustomTheme,
@@ -119,6 +120,10 @@ const autosaveScheduler = new AutosaveScheduler((docId) => {
 // Main's close guards mirror the setting; tell it where we stand at launch.
 window.foolscap.setAutosaveEnabled(autosaveEnabled())
 
+/* Paste and drop share the assets/ path, and its two ways of failing. */
+const IMAGE_NO_DOCUMENT = 'Save the document first — images need a folder to live beside.'
+const IMAGE_FAILED = 'That image could not be saved beside the document — check the folder is writable.'
+
 const editor = createEditor(app, {
   onDocChanged: () => {
     const doc = displayedDoc()
@@ -137,8 +142,8 @@ const editor = createEditor(app, {
     outline.handleUpdate(update)
     modes.handleUpdate(update)
   },
-  onNoDocumentForPaste: () => showToast('Save the document first — pasted images need a folder to live beside.'),
-  onPasteFailed: () => showToast('That image could not be saved beside the document — check the folder is writable.')
+  onNoDocumentForPaste: () => showToast(IMAGE_NO_DOCUMENT),
+  onPasteFailed: () => showToast(IMAGE_FAILED)
 })
 const outline = new Outline(editor.view, (pos) => {
   const anchor = Math.min(pos, editor.view.state.doc.length)
@@ -445,10 +450,36 @@ const paletteCommands = (): PaletteCommand[] => [
 
 const palette = new Palette(paletteCommands, () => editor.view.focus())
 
+/* Dropped images: in the editor they land where the drop cursor pointed,
+ * the same inline link a paste makes. The preview page has no cursor, so
+ * there the image becomes its own paragraph above the block it was
+ * dropped on (the end of the document when dropped past everything), and
+ * the editor opens there to name it. The files write first; the links
+ * land in one transaction. */
+async function dropImages(files: File[], x: number, y: number): Promise<void> {
+  if (helpPreview.visible) toggleHelp()
+  let place: (state: EditorState, relPaths: readonly string[]) => TransactionSpec
+  if (preview.visible || previewEntering) {
+    const block = document.elementFromPoint(x, y)?.closest<HTMLElement>('.preview-doc > [data-pos]')
+    const at = block ? Number(block.dataset['pos']) : editor.view.state.doc.length
+    exitPreview()
+    place = (state, relPaths) => imageBlockInsertion(state, at, relPaths)
+  } else {
+    const at = editor.view.posAtCoords({ x, y }) ?? editor.view.state.selection.main.head
+    place = (state, relPaths) => imagesInline(state, at, relPaths)
+  }
+  try {
+    await insertDroppedImages(editor.view, files, place, () => showToast(IMAGE_NO_DOCUMENT))
+  } catch {
+    showToast(IMAGE_FAILED)
+  }
+}
+
 /* Drag a markdown file onto the window to open it here — with the same
- * unsaved-changes guard as any other open. Capture phase: CodeMirror's drop
- * handler preventDefaults but never stops propagation, so without this it
- * inserts the file's text and we open it too. */
+ * unsaved-changes guard as any other open — or images to place them.
+ * Capture phase: CodeMirror's drop handler preventDefaults but never stops
+ * propagation, so without this it inserts the file's text and we open it
+ * too. */
 window.addEventListener('dragover', (e) => e.preventDefault())
 window.addEventListener(
   'drop',
@@ -459,7 +490,11 @@ window.addEventListener(
     e.preventDefault()
     e.stopPropagation()
     if (verdict === 'reject') {
-      showToast('Foolscap opens markdown files (.md, .markdown, .mdx, .txt).')
+      showToast('Drop markdown (.md, .markdown, .mdx, .txt) to open it, or images (.png, .jpg, .gif, .webp) to place them.')
+      return
+    }
+    if (verdict === 'image') {
+      void dropImages(droppedImages(files ? Array.from(files) : []), e.clientX, e.clientY)
       return
     }
     const file = files?.[0]

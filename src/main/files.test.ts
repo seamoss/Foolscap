@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { atomicWriteFile, tempName, timestampName } from './files'
+import { assetName, atomicWriteFile, tempName, timestampName } from './files'
 
 describe('tempName', () => {
   it('never repeats for the same target', () => {
@@ -15,6 +15,27 @@ describe('tempName', () => {
     expect(name.startsWith('.notes.md.foolscap-')).toBe(true)
     expect(name.endsWith('.tmp')).toBe(true)
     expect(name).not.toContain('/')
+  })
+})
+
+describe('assetName', () => {
+  const now = new Date(2026, 6, 28, 9, 5, 3)
+
+  it('keeps a dropped file\'s name with the verified extension', () => {
+    expect(assetName('Screenshot 2026-07-28.PNG', 'png', now)).toBe('Screenshot-2026-07-28.png')
+    expect(assetName('photo.jpeg', 'jpg', now)).toBe('photo.jpg')
+  })
+
+  it('folds accents, strips traversal and hidden-file prefixes, caps the length', () => {
+    expect(assetName('Café au lait.png', 'png', now)).toBe('Cafe-au-lait.png')
+    expect(assetName('../../.secret.png', 'png', now)).toBe('secret.png')
+    expect(assetName('x'.repeat(100) + '.png', 'png', now)).toBe('x'.repeat(64) + '.png')
+  })
+
+  it('falls back to the timestamp when nothing usable is offered', () => {
+    expect(assetName(null, 'png', now)).toBe('pasted-20260728-090503.png')
+    expect(assetName('....png', 'png', now)).toBe('pasted-20260728-090503.png')
+    expect(assetName('日本語.png', 'png', now)).toBe('pasted-20260728-090503.png')
   })
 })
 

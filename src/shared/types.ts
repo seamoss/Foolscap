@@ -64,6 +64,9 @@ export type ConflictChoice = 'reload' | 'keep'
 /* File types Foolscap opens via drag-and-drop. One definition for both the
  * renderer's drop filter and main's openDropped validation. */
 export const DROPPABLE_FILE = /\.(md|markdown|mdx|txt)$/i
+/* Image files Foolscap places into the document on drop, the way a paste
+ * does — into assets/ beside the file, linked relatively. */
+export const DROPPABLE_IMAGE = /\.(png|jpe?g|gif|webp)$/i
 
 /* Sent after a successful save — Save As changes both. */
 export interface SavedPayload {
@@ -186,8 +189,9 @@ export interface FoolscapApi {
   resolveConflict(docId: number, choice: ConflictChoice): void
   openExternal(url: string): void
   exec(command: AppCommand): void
-  /* Returns the relative markdown path, or null for an unsaved document. */
-  pasteImage(bytes: Uint8Array, ext: string): Promise<string | null>
+  /* Returns the relative markdown path, or null for an unsaved document. A
+   * dropped file offers its name; a clipboard paste has none. */
+  pasteImage(bytes: Uint8Array, ext: string, name?: string | null): Promise<string | null>
   /* Absolute path of a dropped File (webUtils; File.path is long gone). */
   pathForFile(file: File): string
   openDropped(path: string): void

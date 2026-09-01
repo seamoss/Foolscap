@@ -31,6 +31,22 @@ export async function atomicWriteFile(path: string, data: string | Uint8Array): 
   }
 }
 
+/* A dropped file keeps its name, made safe for a relative markdown link
+ * and for the disk: accents fold, anything outside letters, digits, dot,
+ * dash, and underscore becomes a dash, leading dots and dashes go (no
+ * hidden files, no traversal), and the extension is the one main
+ * verified. Nothing usable — or nothing offered, as with a clipboard
+ * paste — falls back to the timestamp. */
+export function assetName(preferred: string | null, ext: string, now: Date): string {
+  const stem = (preferred ?? '')
+    .replace(/\.[^.]*$/, '')
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .slice(0, 64)
+  return stem ? `${stem}.${ext}` : timestampName('pasted', ext, now)
+}
+
 /* Timestamped asset name: pasted-YYYYMMDD-HHMMSS.ext */
 export function timestampName(prefix: string, ext: string, now: Date): string {
   const p = (n: number): string => String(n).padStart(2, '0')

@@ -14,7 +14,7 @@ import {
 import { renderExportHtml } from './export/html'
 import { printDocument, renderPdf } from './export/pdf'
 import { closedTabs } from './closed-tabs'
-import { atomicWriteFile, readTextFile, timestampName, watchFile } from './files'
+import { assetName, atomicWriteFile, readTextFile, watchFile } from './files'
 import { docKey, listSnapshots, pruneSnapshots, readSnapshot, writeSnapshot } from './history-store'
 import { acquireAccess, ensureFolderAccess, rememberBookmark } from './scoped'
 import type { SessionEntry, WindowEntry } from './session-store'
@@ -377,9 +377,11 @@ export class TabSession {
     }
   }
 
-  /* Paste target per the plan: a sibling assets/ folder, relative link back.
-   * Null for unsaved documents — no directory to be a sibling of. */
-  async savePastedImage(bytes: Uint8Array, ext: string): Promise<string | null> {
+  /* Paste (and drop) target per the plan: a sibling assets/ folder,
+   * relative link back. Null for unsaved documents — no directory to be a
+   * sibling of. A dropped file offers its own name; an existing file of
+   * that name is never overwritten, the newcomer gets a -2. */
+  async savePastedImage(bytes: Uint8Array, ext: string, name: string | null = null): Promise<string | null> {
     if (!this.path) return null
     if (
       !(await ensureFolderAccess(
@@ -392,12 +394,14 @@ export class TabSession {
     }
     const assetsDir = join(dirname(this.path), 'assets')
     await mkdir(assetsDir, { recursive: true })
-    let name = timestampName('pasted', ext, new Date())
-    for (let n = 2; existsSync(join(assetsDir, name)); n++) {
-      name = timestampName(`pasted-${n}`, ext, new Date())
+    const base = assetName(name, ext, new Date())
+    const stem = base.slice(0, -(ext.length + 1))
+    let file = base
+    for (let n = 2; existsSync(join(assetsDir, file)); n++) {
+      file = `${stem}-${n}.${ext}`
     }
-    await atomicWriteFile(join(assetsDir, name), bytes)
-    return `assets/${name}`
+    await atomicWriteFile(join(assetsDir, file), bytes)
+    return `assets/${file}`
   }
 
   async printDoc(): Promise<void> {

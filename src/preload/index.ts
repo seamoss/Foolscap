@@ -24,8 +24,8 @@ const api: FoolscapApi = {
     ipcRenderer.send(IPC.conflictResolve, docId, choice),
   openExternal: (url) => ipcRenderer.send(IPC.openExternal, url),
   exec: (command: AppCommand) => ipcRenderer.send(IPC.exec, command),
-  pasteImage: (bytes: Uint8Array, ext: string): Promise<string | null> =>
-    ipcRenderer.invoke(IPC.pasteImage, bytes, ext),
+  pasteImage: (bytes: Uint8Array, ext: string, name?: string | null): Promise<string | null> =>
+    ipcRenderer.invoke(IPC.pasteImage, bytes, ext, name ?? null),
   pathForFile: (file: File) => webUtils.getPathForFile(file),
   openDropped: (path: string) => ipcRenderer.send(IPC.openDropped, path),
   loadCustomTheme: (): Promise<string | null> => ipcRenderer.invoke(IPC.loadCustomTheme),

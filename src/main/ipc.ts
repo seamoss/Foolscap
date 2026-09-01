@@ -75,10 +75,10 @@ export function registerIpc(
         return actions.updateRestart()
     }
   })
-  ipcMain.handle(IPC.pasteImage, (e, bytes: Uint8Array, ext: string) => {
+  ipcMain.handle(IPC.pasteImage, (e, bytes: Uint8Array, ext: string, name: unknown) => {
     const tab = sessionFor(e.sender.id)?.activeTab
     if (!tab || !/^[a-z0-9]+$/.test(ext)) return null
-    return tab.savePastedImage(bytes, ext)
+    return tab.savePastedImage(bytes, ext, typeof name === 'string' ? name : null)
   })
   ipcMain.on(IPC.openDropped, (e, path: string) => {
     // Same filter the renderer applies to the drop; main must not trust it.
