@@ -1,7 +1,7 @@
 {
   "name": "foolscap",
   "productName": "Foolscap",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "A markdown editor. Free, open source, file-first, focused on typography and feel.",
   "license": "MIT",
   "private": true,

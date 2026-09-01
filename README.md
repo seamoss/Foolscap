@@ -17,7 +17,7 @@ Foolscap is a single beautiful writing surface for markdown files. The buffer is
 
 ## What it does
 
-- Live preview of every markdown construct: headings (Fraunces, real optical sizing), emphasis, lists with hanging indents and real bullets, links (Cmd-click to open), Shiki-highlighted code fences, inline images, blockquotes, rules, clickable task-list checkboxes, and tables with cell navigation, a normalizing formatter, drag-to-resize columns, and hover column controls
+- Live preview of every markdown construct: headings (Fraunces, real optical sizing), emphasis, lists with hanging indents and real bullets, links (Cmd-click to open), Shiki-highlighted code fences, inline images, blockquotes, rules, clickable task-list checkboxes, and tables that render as a real grid and edit in place (click a cell and type; ⌥-click for the pipe source with its normalizing formatter, drag-to-resize columns, and hover column controls)
 - Atomic saves — temp file, fsync, rename; a crash can never truncate your manuscript
 - External-change watching: clean buffers reload silently, dirty buffers get a choice
 - Command palette (⌘K), find & replace, outline panel, typewriter and focus modes, word count
