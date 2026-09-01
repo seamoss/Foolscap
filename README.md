@@ -17,6 +17,7 @@ Foolscap is a single beautiful writing surface for markdown files. The buffer is
 
 ## What it does
 
+- Files open where you left them; ⇧⌘T reopens a closed tab; drop an image from Finder or paste a URL over a selection and the markdown writes itself
 - Live preview of every markdown construct: headings (Fraunces, real optical sizing), emphasis, lists with hanging indents and real bullets, links (Cmd-click to open), Shiki-highlighted code fences, inline images, blockquotes, rules, clickable task-list checkboxes, and tables that render as a real grid and edit in place (click a cell and type; ⌥-click for the pipe source with its normalizing formatter, drag-to-resize columns, and hover column controls)
 - Atomic saves — temp file, fsync, rename; a crash can never truncate your manuscript
 - External-change watching: clean buffers reload silently, dirty buffers get a choice

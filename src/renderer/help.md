@@ -40,6 +40,7 @@ Everything lives in the command palette — press `⌘K` and type.
 | `⇧⌘O` | Outline panel — headings, click to jump |
 | `⌘N` | New window |
 | `⌘T` | New tab — documents can share a window; drag a tab out to split |
+| `⇧⌘T` | Reopen the tab you just closed |
 | `⌘O` | Open a file (or just drop one on the window) |
 | `⌘S` | Save (atomic: your file is never half-written; autosave does this for you) |
 | `⌘P` | Print |
@@ -59,14 +60,16 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
   you move, always tidied. `⌥`-click a cell for the raw pipes — that's
   where hovering shows column controls and pipe edges drag. Settings ▸
   Writing turns the grid off entirely.
-- **Images** — paste a screenshot; it lands in an `assets/` folder next to
-  your document with a relative link. Arrow into an image to see its
-  markdown; arrow out to see the picture.
+- **Images** — paste a screenshot, or drop a picture from Finder; it lands
+  in an `assets/` folder next to your document with a relative link (a
+  dropped file keeps its name). Arrow into an image to see its markdown;
+  arrow out to see the picture.
 - **Emphasis** — `⌘B` and `⌘I` wrap the selection (or the word under the
   caret) and unwrap it if it's already formatted. The buffer stays plain
   markdown either way — the shortcut just types the stars for you.
 - **Links** — `⌘`-click opens them in your browser. `⇧⌘K` turns the
-  selection into `[text]()` with the caret waiting in the parens.
+  selection into `[text]()` with the caret waiting in the parens — or
+  just select some words and paste a URL over them.
 - **Task lists** — `- [ ]` becomes a checkbox you can actually click;
   ticking it writes the `x` into your file, because the file is the truth.
 - **Code** — fences highlight with real grammars, set in Ioskeley Mono.
@@ -83,6 +86,10 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
   replaces the buffer as one edit, so `⌘Z` takes it right back.
 - **Undo remembers.** The undo stack survives quitting: reopen Foolscap
   and `⌘Z` still walks yesterday's edits.
+- **So does your place.** A file opens where you left it — the same
+  passage on the page, the same line in the editor — however long ago.
+- **Reveal in Finder** and **Copy Path** live in the File menu and `⌘K`;
+  the window has no proxy icon to drag, so these are the way out.
 
 ## Appearance
 
@@ -93,8 +100,14 @@ crisp faces, five serif and five sans; your pick carries the whole page,
 while code keeps its mono. **Typewriter mode** keeps the line you're
 typing vertically centered; **focus mode** dims everything but the
 paragraph you're in; the word count whispers in the corner when you move
-the mouse. **Line numbers** (off by default) put a quiet ordinal beside
-each source line — the editor only; the preview stays a page.
+the mouse, and counts the selection while you have one. **Line numbers**
+(off by default) put a quiet ordinal beside each source line — the editor
+only; the preview stays a page.
+
+The page sets itself: paragraphs wrap evenly with no orphaned last words,
+long words hyphenate at the margin, headings balance their lines. Code
+and links never break inside. The same rules reach the HTML and PDF you
+export.
 
 ## Leaving
 
