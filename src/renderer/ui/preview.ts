@@ -154,6 +154,10 @@ export class Preview {
   private markdown = ''
   private docDir: string | null = null
   private resize: ColumnResize | null = null
+  /* Renders are async and can overlap — two files opened at once, a tab
+   * switch mid-render. Only the newest show may touch the pane; an older
+   * one finishing later must not overwrite its HTML or its visibility. */
+  private showGen = 0
 
   constructor(
     private readonly onEdit: (pos: number, screenTop?: number) => void,
@@ -225,20 +229,25 @@ export class Preview {
     }
   }
 
-  async show(markdown: string, docDir: string | null, nearPos: number): Promise<void> {
+  /* Resolves true once the pane shows this document; false when a newer
+   * show superseded it mid-render, in which case nothing was touched. */
+  async show(markdown: string, docDir: string | null, nearPos: number): Promise<boolean> {
+    const gen = ++this.showGen
+    const html = await renderMarkdown(markdown, { sourcePositions: true })
+    if (gen !== this.showGen) return false
     this.markdown = markdown
     this.docDir = docDir
-    await this.render()
+    this.render(html)
     this.el.hidden = false
     this.visible = true
     this.focus()
     // Land near where the cursor was in the editor.
     if (nearPos > 0) this.scrollTo(nearPos, 'center')
     else this.el.scrollTop = 0
+    return true
   }
 
-  private async render(): Promise<void> {
-    const html = await renderMarkdown(this.markdown, { sourcePositions: true })
+  private render(html: string): void {
     this.el.innerHTML = `<main class="preview-doc">${html}</main>`
     // The pipeline escapes raw HTML, so this is our own output only.
     for (const img of this.el.querySelectorAll('img')) {
@@ -402,7 +411,10 @@ export class Preview {
     // Re-render: the table's new source length shifts every later data-pos.
     this.markdown = updated
     const scroll = this.el.scrollTop
-    await this.render()
+    const gen = this.showGen
+    const html = await renderMarkdown(updated, { sourcePositions: true })
+    if (gen !== this.showGen) return // a newer show owns the pane now
+    this.render(html)
     this.el.scrollTop = scroll
   }
 }

@@ -198,13 +198,19 @@ async function enterPreview(nearPos?: number): Promise<void> {
   try {
     // Render before hiding the editor: while the pipeline works, the user
     // sees their document as text — never blank paper.
-    await preview.show(editor.getContent(), displayedDoc()?.dir ?? null, at)
+    const shown = await preview.show(editor.getContent(), displayedDoc()?.dir ?? null, at)
     if (gen !== previewGen) {
-      // The stale show stole focus; hand it back to wherever the user went.
-      preview.hide()
-      editor.view.focus()
+      // Superseded. A newer enter (another tab's file, opened mid-render)
+      // resolved this show false and owns the pane — nothing to undo. Only
+      // when the pane did show — the user left preview while it rendered —
+      // does it go back, and focus with it.
+      if (shown) {
+        preview.hide()
+        editor.view.focus()
+      }
       return
     }
+    if (!shown) return
     document.documentElement.classList.add('previewing')
   } catch (err) {
     if (gen !== previewGen) return
