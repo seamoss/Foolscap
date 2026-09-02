@@ -7,7 +7,7 @@ import { readTextFile } from './files'
 import type { MenuActions } from './menu'
 import { positions } from './positions-store'
 import { setAutosaveEnabled, type WindowSession } from './session'
-import { checkNow } from './updater'
+import { updates } from '#updater'
 
 export const OPENABLE_SCHEMES = new Set(['http:', 'https:', 'mailto:'])
 
@@ -119,7 +119,7 @@ export function registerIpc(
       void sessionFor(e.sender.id)?.openPath(path)
     }
   })
-  ipcMain.handle(IPC.updateCheck, () => checkNow())
+  ipcMain.handle(IPC.updateCheck, () => updates.checkNow())
   ipcMain.handle(IPC.loadCustomTheme, async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],

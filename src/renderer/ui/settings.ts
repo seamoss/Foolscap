@@ -18,7 +18,8 @@ import {
 interface SettingsHooks {
   modes: Modes
   loadCustomTheme(): void
-  checkForUpdates(): void
+  /* Null in the App Store edition, which offers no update check. */
+  checkForUpdates: (() => void) | null
   autosaveOn(): boolean
   toggleAutosave(): void
 }
@@ -71,9 +72,9 @@ export class Settings {
       this.fontSection(),
       this.sizeSection(),
       this.modesSection(),
-      this.savingSection(),
-      this.updatesSection()
+      this.savingSection()
     )
+    if (this.hooks.checkForUpdates) card.append(this.updatesSection())
 
     this.overlay.replaceChildren(card)
   }
@@ -166,7 +167,7 @@ export class Settings {
     row.append(
       this.chip('Check for updates now', false, () => {
         this.close()
-        this.hooks.checkForUpdates()
+        this.hooks.checkForUpdates?.()
       })
     )
     return wrap

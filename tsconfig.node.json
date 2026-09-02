@@ -12,6 +12,7 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "types": ["electron-vite/node"],
+    "paths": { "#updater": ["./src/main/updater-direct.ts"] },
     "outDir": "out/types-node"
   },
   "include": ["electron.vite.config.ts", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"]

@@ -57,6 +57,13 @@ component. If a token is missing, add it to tokens.css first.
   `gh release create vX.Y.Z dist/*.dmg`. The latest GitHub Release IS the
   update-notifier feed — the tag is the version; there is no feed file to
   edit, ever.
+- Two editions, one version number. The tag push builds the direct edition
+  (self-updating). The Mac App Store edition is `pnpm dist:store`, which
+  sets FOOLSCAP_EDITION=store, packages, and refuses to produce a bundle
+  carrying electron-updater, app-update.yml, or any node_modules — App
+  Review rejects apps with their own update checks, so the Store edition
+  has none, and no UI for one. Resubmitting the same version to the Store
+  needs a higher build number: `FOOLSCAP_STORE_SUBMISSION=2 pnpm dist:store`.
 - Commit messages never include Claude/session links.
 - The golden-file fixture suite must stay green. If a change breaks byte-identical
   round-trip, the change is wrong.

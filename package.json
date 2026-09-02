@@ -14,7 +14,9 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit -p tsconfig.node.json --composite false && tsc --noEmit -p tsconfig.web.json --composite false",
     "pack:app": "electron-vite build && electron-builder --dir",
-    "dist": "electron-vite build && electron-builder"
+    "dist": "electron-vite build && electron-builder",
+    "build:store": "FOOLSCAP_EDITION=store electron-vite build",
+    "dist:store": "node scripts/dist-store.cjs"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

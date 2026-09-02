@@ -10,7 +10,8 @@ import { positions } from './positions-store'
 import { WindowSession } from './session'
 import { clearSession, loadSession, saveSession, type WindowEntry } from './session-store'
 import { IPC } from '../shared/types'
-import { installAndRestart, startAutoUpdater } from './updater'
+import { updates } from '#updater'
+import { EDITION, EDITION_LABEL } from './edition'
 import { createWindow, installContentsGuards } from './window'
 
 /* Dev-only: FOOLSCAP_USER_DATA=<dir> points userData — session, history,
@@ -294,7 +295,7 @@ if (!gotLock) {
     persistedQuit = true
     for (const session of sessions.values()) session.allowSilentClose()
     // Session is safe on disk either way; an update restart costs nothing.
-    if (installUpdate) installAndRestart()
+    if (installUpdate) updates.installAndRestart()
     else app.quit()
   }
 
@@ -312,6 +313,14 @@ if (!gotLock) {
     installContentsGuards()
     registerIpc((wcId) => sessions.get(wcId) ?? null, actions, detachTab)
     installMenu(actions)
+    // One version number across both editions; the About panel is where
+    // "Version 0.16.0 (App Store)" tells them apart.
+    app.setAboutPanelOptions({
+      applicationName: 'Foolscap',
+      applicationVersion: app.getVersion(),
+      version: EDITION_LABEL[EDITION],
+      copyright: '© 2026 HEAVYSTACK'
+    })
 
     appReady = true
     // The session restores even when the launch carries file arguments:
@@ -359,8 +368,9 @@ if (!gotLock) {
     // Hot updates (ULTRAPLAN §7, unlocked by code signing at v0.6.1):
     // download quietly, toast once when ready, install on restart or on
     // whatever quit comes naturally. No window to tell? The update still
-    // applies on quit — nothing is lost by silence.
-    startAutoUpdater((info) => {
+    // applies on quit — nothing is lost by silence. (The App Store edition's
+    // channel is a no-op: the Store does all of this itself.)
+    updates.start((info) => {
       const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
       if (!win || win.isDestroyed()) return false
       win.webContents.send(IPC.updateReady, info)

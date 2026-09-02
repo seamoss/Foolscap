@@ -42,10 +42,22 @@ mac:
     - target: zip # electron-updater feeds from the zip
       arch: [arm64, x64]
 mas:
-  # Mac App Store flavor: App Sandbox instead of hardened runtime, Apple
+  # Mac App Store edition: App Sandbox instead of hardened runtime, Apple
   # Distribution signing, and a provisioning profile from the portal
   # (download to build/foolscap-mas.provisionprofile — gitignored).
-  # Build: pnpm exec electron-builder --mac mas   Upload: Transporter.
+  # Build: pnpm dist:store (never electron-builder directly — the script
+  # builds with FOOLSCAP_EDITION=store and verifies the result). Upload
+  # with Transporter.
+  #
+  # No self-update machinery of any kind ships in this edition: App Review
+  # rejects apps that add update checks to the Store's own. So: no
+  # app-update.yml feed descriptor (publish off), no node_modules in the
+  # asar (electron-updater and its dependencies are the app's only runtime
+  # packages), and a main bundle that never imports the library.
+  publish: null
+  files:
+    - '!**/node_modules/**'
+  artifactName: '${productName}-${version}-store-${arch}.${ext}'
   hardenedRuntime: false
   entitlements: build/entitlements.mas.plist
   entitlementsInherit: build/entitlements.mas.inherit.plist

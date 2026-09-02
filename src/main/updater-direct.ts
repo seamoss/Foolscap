@@ -1,10 +1,13 @@
 import { app } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import type { UpdateCheckOutcome, UpdateCheckResult } from '../shared/types'
+import type { UpdateCheckOutcome, UpdateCheckResult, UpdatePayload } from '../shared/types'
+import type { UpdateChannel } from './update-channel'
 
-/* Hot updates over the GitHub Releases feed (ULTRAPLAN §7, unlocked by
- * code signing — Squirrel.Mac verifies the running app and the downloaded
- * update against each other's signatures, so this only works signed).
+/* The direct-download edition's channel: hot updates over the GitHub
+ * Releases feed (ULTRAPLAN §7, unlocked by code signing — Squirrel.Mac
+ * verifies the running app and the downloaded update against each other's
+ * signatures, so this only works signed). The App Store edition never
+ * imports this module (see electron.vite.config.ts and updater-store.ts).
  *
  * The manner is Foolscap's: everything happens quietly in the background,
  * and the user hears exactly one thing — a toast when a new version is
@@ -13,15 +16,11 @@ import type { UpdateCheckOutcome, UpdateCheckResult } from '../shared/types'
  * Every failure is silent; an updater is the least important thing this
  * app runs. Dev builds: inert. */
 
-export interface UpdateReady {
-  version: string
-}
-
 const FOUR_HOURS = 4 * 60 * 60 * 1000
 
-export function startAutoUpdater(onReady: (info: UpdateReady) => boolean): void {
-  // Mac App Store builds must not self-update (automatic rejection);
-  // the Store owns delivery there.
+function start(announce: (update: UpdatePayload) => boolean): void {
+  // Belt and braces: a sandboxed (Store) process must never self-update
+  // even if this module somehow reached one.
   if (!app.isPackaged || process.mas) return
   autoUpdater.logger = null
   autoUpdater.autoDownload = true
@@ -34,7 +33,7 @@ export function startAutoUpdater(onReady: (info: UpdateReady) => boolean): void 
   let announced: string | null = null
   autoUpdater.on('update-downloaded', (event) => {
     if (event.version === announced) return
-    if (onReady({ version: event.version })) announced = event.version
+    if (announce({ version: event.version })) announced = event.version
   })
   autoUpdater.on('error', () => {
     // offline, rate-limited, feed missing — all fine, all silent
@@ -47,19 +46,12 @@ export function startAutoUpdater(onReady: (info: UpdateReady) => boolean): void 
   setInterval(check, FOUR_HOURS)
 }
 
-/* The restart half of the toast. Callers persist the session first —
- * an update must never cost anyone an unsaved draft. */
-export function installAndRestart(): void {
-  autoUpdater.quitAndInstall()
-}
-
 /* A check the user asked for by name (Help menu, Settings, palette) — the
  * one context where silence is wrong. Resolves to something toastable in
  * every case, including a re-check while an update is already en route
  * (update-available fires again; the ready toast follows as usual). */
-export function checkNow(): Promise<UpdateCheckResult> {
-  if (process.mas) return Promise.resolve({ outcome: 'mas-build', version: null })
-  if (!app.isPackaged) return Promise.resolve({ outcome: 'dev-build', version: null })
+function checkNow(): Promise<UpdateCheckResult> {
+  if (!app.isPackaged || process.mas) return Promise.resolve({ outcome: 'dev-build', version: null })
   return new Promise((resolve) => {
     const done = (outcome: UpdateCheckOutcome, version: string | null = null): void => {
       autoUpdater.off('update-available', onAvailable)
@@ -75,4 +67,12 @@ export function checkNow(): Promise<UpdateCheckResult> {
     autoUpdater.on('error', onError)
     void autoUpdater.checkForUpdates().catch(() => done('unreachable'))
   })
+}
+
+export const updates: UpdateChannel = {
+  start,
+  checkNow,
+  /* The restart half of the toast. Callers persist the session first —
+   * an update must never cost anyone an unsaved draft. */
+  installAndRestart: () => autoUpdater.quitAndInstall()
 }

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 import { IPC, type MenuCommand } from '../shared/types'
+import { EDITION } from './edition'
 import type { WindowSession } from './session'
 
 export interface MenuActions {
@@ -186,11 +187,14 @@ export function installMenu(actions: MenuActions): void {
           accelerator: 'CmdOrCtrl+Shift+/',
           click: () => actions.help()
         },
-        { type: 'separator' },
-        {
-          label: 'Check for Updates…',
-          click: () => sendCommand('check-updates')
-        }
+        // The App Store edition offers no update check: the Store owns
+        // updates, and App Review rejects apps that add their own.
+        ...(EDITION === 'direct'
+          ? ([
+              { type: 'separator' },
+              { label: 'Check for Updates…', click: () => sendCommand('check-updates') }
+            ] as MenuItemConstructorOptions[])
+          : [])
       ]
     }
   ]

@@ -122,13 +122,15 @@ export interface UpdatePayload {
   version: string
 }
 
-/* What a user-initiated update check found; each maps to one toast. */
+/* What a user-initiated update check found; each maps to one toast. The
+ * App Store edition offers no check at all (its entry points are compiled
+ * out); 'store-edition' is what its channel answers if asked anyway. */
 export type UpdateCheckOutcome =
   | 'update-en-route'
   | 'up-to-date'
   | 'unreachable'
   | 'dev-build'
-  | 'mas-build'
+  | 'store-edition'
 
 export interface UpdateCheckResult {
   outcome: UpdateCheckOutcome
@@ -192,8 +194,13 @@ export const IPC = {
 /* The contextBridge surface. Implemented in src/preload/index.ts, consumed as
  * `window.foolscap` in the renderer. Document channels carry the docId of
  * the tab they concern; tab intents go to the sender window's session. */
+export type Edition = 'direct' | 'store'
+
 export interface FoolscapApi {
   readonly platform: string
+  /* Which build this is: 'direct' self-updates and offers a manual check;
+   * 'store' leaves all of that to the Mac App Store and shows none of it. */
+  readonly edition: Edition
   setDirty(docId: number, dirty: boolean): void
   sendContent(docId: number, content: string): void
   /* Reply to requestState: the buffer plus its serialized undo history

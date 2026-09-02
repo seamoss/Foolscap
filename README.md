@@ -62,6 +62,14 @@ installs on restart — or on whatever quit comes naturally.
 (Releases before 0.6.1 were unsigned — if macOS grumbles about an old
 download, just grab a current one.)
 
+**Two editions, one version.** The DMG above is the *direct* edition: it
+updates itself. The Mac App Store edition is the same version number and
+the same code, minus every trace of self-updating — the Store delivers its
+updates, and App Review requires that apps not add checks of their own.
+About Foolscap says which one you have: "0.16.0 (Direct download)" or
+"0.16.0 (App Store)". Store builds carry a rising build number for
+resubmissions of the same version (see `scripts/dist-store.cjs`).
+
 ## Building
 
 ```

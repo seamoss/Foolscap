@@ -343,7 +343,7 @@ function checkUpdatesNow(): void {
       showToast('Foolscap is up to date.')
     } else if (outcome === 'dev-build') {
       showToast('Running from source — updates arrive by git, not by toast.')
-    } else if (outcome === 'mas-build') {
+    } else if (outcome === 'store-edition') {
       showToast('This copy updates through the App Store.')
     } else {
       showToast('Couldn’t reach the update feed — try again later.')
@@ -351,10 +351,14 @@ function checkUpdatesNow(): void {
   })
 }
 
+/* The App Store edition shows no update check anywhere — the Store owns
+ * updates and App Review rejects apps that add their own. */
+const canCheckUpdates = window.foolscap.edition === 'direct'
+
 const settings = new Settings({
   modes,
   loadCustomTheme,
-  checkForUpdates: checkUpdatesNow,
+  checkForUpdates: canCheckUpdates ? checkUpdatesNow : null,
   autosaveOn: () => autosaveEnabled(),
   toggleAutosave: () => {
     const on = !autosaveEnabled()
@@ -473,7 +477,9 @@ const paletteCommands = (): PaletteCommand[] => [
   { id: 'line-numbers', title: 'Toggle Line Numbers', run: () => modes.toggleLineNumbers() },
   { id: 'table-grid', title: 'Toggle Table Grid', run: () => modes.toggleTableGrid() },
   { id: 'settings', title: 'Settings…', hint: `${mod},`, run: () => settings.toggle() },
-  { id: 'check-updates', title: 'Check for Updates…', run: () => checkUpdatesNow() },
+  ...(canCheckUpdates
+    ? [{ id: 'check-updates', title: 'Check for Updates…', run: () => checkUpdatesNow() }]
+    : []),
   { id: 'print', title: 'Print…', hint: `${mod}P`, run: () => window.foolscap.exec('file-print') },
   { id: 'text-larger', title: 'Text Size: Larger', hint: `${mod}+`, run: () => void adjustTextSize(1) },
   { id: 'text-smaller', title: 'Text Size: Smaller', hint: `${mod}−`, run: () => void adjustTextSize(-1) },

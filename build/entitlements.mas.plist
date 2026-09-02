@@ -23,8 +23,8 @@
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
-  <!-- The update check is compiled out of MAS builds, but preview link
-       fetches and Shiki grammar loads stay local; no network entitlements
-       are needed beyond none. (Links open in the system browser.) -->
+  <!-- No network entitlement, deliberately: the App Store edition makes no
+       update checks (App Review's rule, and ours), Shiki grammars load from
+       the bundle, and links open in the system browser. -->
 </dict>
 </plist>
