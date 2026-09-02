@@ -56,7 +56,11 @@ mas:
   # library, and no app-update.yml feed descriptor — that one needs the
   # top-level `publish` block gone entirely (a per-target null doesn't stop
   # it), which dist-store.cjs does by deriving a publish-less config.
+  # A complete list, not just the negation: a files list that starts with a
+  # negation makes electron-builder begin from the whole project tree.
   files:
+    - out/**
+    - package.json
     - '!**/node_modules/**'
   artifactName: '${productName}-${version}-mas-${arch}.${ext}'
   hardenedRuntime: false
