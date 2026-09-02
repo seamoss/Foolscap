@@ -64,6 +64,11 @@ component. If a token is missing, add it to tokens.css first.
   Review rejects apps with their own update checks, so the Store edition
   has none, and no UI for one. Resubmitting the same version to the Store
   needs a higher build number: `FOOLSCAP_STORE_SUBMISSION=2 pnpm dist:store`.
+  The Store edition is `-mas` everywhere Apple allows: the app shows its
+  version as `0.16.0-mas`, the pkg is `Foolscap-0.16.0-mas-universal.pkg`,
+  and dist:store tags the submission `v0.16.0-mas.N` (push it too). The
+  bundle's own version string stays plain `0.16.0` — Apple accepts only
+  digits and dots there.
 - Commit messages never include Claude/session links.
 - The golden-file fixture suite must stay green. If a change breaks byte-identical
   round-trip, the change is wrong.

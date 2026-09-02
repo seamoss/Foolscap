@@ -66,9 +66,11 @@ download, just grab a current one.)
 updates itself. The Mac App Store edition is the same version number and
 the same code, minus every trace of self-updating — the Store delivers its
 updates, and App Review requires that apps not add checks of their own.
-About Foolscap says which one you have: "0.16.0 (Direct download)" or
-"0.16.0 (App Store)". Store builds carry a rising build number for
-resubmissions of the same version (see `scripts/dist-store.cjs`).
+The Store edition is marked `-mas` wherever Apple lets us mark it: About
+Foolscap reads "0.16.0-mas (App Store)" there and "0.16.0 (Direct download)"
+here, the package is `Foolscap-0.16.0-mas-universal.pkg`, and each Store
+submission is tagged `v0.16.0-mas.1` (the bundle's own version string must
+stay plain digits, Apple's rule, so it is the same `0.16.0` in both).
 
 ## Building
 

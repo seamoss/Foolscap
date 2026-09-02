@@ -11,7 +11,7 @@ import { WindowSession } from './session'
 import { clearSession, loadSession, saveSession, type WindowEntry } from './session-store'
 import { IPC } from '../shared/types'
 import { updates } from '#updater'
-import { EDITION, EDITION_LABEL } from './edition'
+import { displayVersion, EDITION, EDITION_LABEL } from './edition'
 import { createWindow, installContentsGuards } from './window'
 
 /* Dev-only: FOOLSCAP_USER_DATA=<dir> points userData — session, history,
@@ -313,11 +313,11 @@ if (!gotLock) {
     installContentsGuards()
     registerIpc((wcId) => sessions.get(wcId) ?? null, actions, detachTab)
     installMenu(actions)
-    // One version number across both editions; the About panel is where
-    // "Version 0.16.0 (App Store)" tells them apart.
+    // One version number across both editions; the About panel reads
+    // "Version 0.16.0 (Direct download)" or "Version 0.16.0-mas (App Store)".
     app.setAboutPanelOptions({
       applicationName: 'Foolscap',
-      applicationVersion: app.getVersion(),
+      applicationVersion: displayVersion(),
       version: EDITION_LABEL[EDITION],
       copyright: '© 2026 HEAVYSTACK'
     })
@@ -398,7 +398,7 @@ if (!gotLock) {
         // Give the window time to exist and settle; a missed toast is fine.
         setTimeout(() => {
           const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-          if (win && !win.isDestroyed()) win.webContents.send(IPC.updatedTo, current)
+          if (win && !win.isDestroyed()) win.webContents.send(IPC.updatedTo, displayVersion())
         }, 3000)
       }
     })()

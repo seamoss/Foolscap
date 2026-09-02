@@ -51,13 +51,14 @@ mas:
   #
   # No self-update machinery of any kind ships in this edition: App Review
   # rejects apps that add update checks to the Store's own. So: no
-  # app-update.yml feed descriptor (publish off), no node_modules in the
-  # asar (electron-updater and its dependencies are the app's only runtime
-  # packages), and a main bundle that never imports the library.
-  publish: null
+  # node_modules in the asar (electron-updater and its dependencies are the
+  # app's only runtime packages), a main bundle that never imports the
+  # library, and no app-update.yml feed descriptor — that one needs the
+  # top-level `publish` block gone entirely (a per-target null doesn't stop
+  # it), which dist-store.cjs does by deriving a publish-less config.
   files:
     - '!**/node_modules/**'
-  artifactName: '${productName}-${version}-store-${arch}.${ext}'
+  artifactName: '${productName}-${version}-mas-${arch}.${ext}'
   hardenedRuntime: false
   entitlements: build/entitlements.mas.plist
   entitlementsInherit: build/entitlements.mas.inherit.plist
