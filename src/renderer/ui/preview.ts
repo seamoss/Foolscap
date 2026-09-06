@@ -2,6 +2,7 @@ import { resolveImageSrc } from '../editor/live-preview/images'
 import {
   columnDisplayWidth,
   formatTable,
+  hasLongToken,
   parseTable,
   setColumnWidth,
   tableSourceAt
@@ -297,9 +298,12 @@ export class Preview {
 
   /* ---- table columns: proportioned by the model, draggable at edges ---- */
 
-  /* Fixed-layout every table with a colgroup whose percentages mirror the
-   * source model's display widths, so a column resized in either mode
-   * renders at its recorded proportion here. */
+  /* Give every table a colgroup whose percentages mirror the source
+   * model's display widths, so a column resized in either mode renders at
+   * its recorded proportion here — under auto layout, so the browser
+   * still keeps each column at least as wide as its longest word. Fixed
+   * layout honoured the percentages to the pixel and let a short ID
+   * column collapse to one character per line beside long prose. */
   private sizeTables(): void {
     for (const table of this.el.querySelectorAll<HTMLTableElement>('table[data-pos]')) {
       const source = tableSourceAt(this.markdown, Number(table.dataset['pos']))
@@ -315,8 +319,10 @@ export class Preview {
         colgroup.append(col)
       }
       table.prepend(colgroup)
-      table.style.tableLayout = 'fixed'
       table.style.width = '100%'
+      for (const cell of table.querySelectorAll('td, th')) {
+        if (hasLongToken(cell.textContent ?? '')) cell.classList.add('fs-cell-breakable')
+      }
     }
   }
 

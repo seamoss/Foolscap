@@ -130,6 +130,18 @@ export function columnDisplayWidth(model: TableModel, at: number): number {
   return columnWidth(model, at)
 }
 
+/* True when a cell holds a token too long to be a word — a URL, a path,
+ * a hash. Under auto table layout a column is never narrower than its
+ * longest unbreakable token, which is exactly right for an ID and exactly
+ * wrong for a URL: one of those would push the whole table past the page
+ * edge. Cells that carry one are allowed to break anywhere instead. */
+export const LONG_TOKEN = 25
+const LONG_TOKEN_RE = new RegExp(`\\S{${LONG_TOKEN},}`)
+
+export function hasLongToken(text: string): boolean {
+  return LONG_TOKEN_RE.test(text)
+}
+
 export function formatTable(model: TableModel): string {
   const columns = model.header.length
   const widths = Array.from({ length: columns }, (_, i) => columnWidth(model, i))
