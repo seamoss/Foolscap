@@ -612,6 +612,7 @@ body {
   border: 1px solid var(--rule);
   padding: 0.35em 0.7em;
   text-align: left;
+  min-width: var(--table-cell-min-width);
   /* Auto layout keeps a column at least as wide as its longest word (an
    * ID never breaks mid-token); break-word is the fallback for anything
    * wider than the column can be. */

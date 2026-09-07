@@ -148,6 +148,7 @@ const editorTheme = EditorView.theme({
     border: '1px solid var(--rule)',
     padding: 'var(--pad-table-cell)',
     textAlign: 'left',
+    minWidth: 'var(--table-cell-min-width)',
     overflowWrap: 'break-word',
     // CodeMirror's .cm-lineWrapping sets word-break: break-word, which the
     // cells would inherit — and which makes every character a break
