@@ -74,7 +74,7 @@ import { Versions } from './ui/versions'
 restoreTheme()
 restoreFont()
 restoreTextSize()
-initTitlebar()
+initTitlebar(() => window.foolscap.showPathMenu(null))
 
 const app = document.getElementById('app')
 if (!(app instanceof HTMLElement)) {
@@ -697,6 +697,7 @@ const tabBar = titlebarStrip
       onClose: (docId) => window.foolscap.tabClose(docId),
       onReorder: (docId, toIndex) => window.foolscap.tabReorder(docId, toIndex),
       onDetach: (docId, x, y) => window.foolscap.tabDetach(docId, x, y),
+      onPathMenu: (docId) => window.foolscap.showPathMenu(docId),
       onNewTab: () => window.foolscap.exec('tab-new')
     })
   : null

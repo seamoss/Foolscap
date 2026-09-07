@@ -40,6 +40,7 @@ const api: FoolscapApi = {
   tabClose: (docId) => ipcRenderer.send(IPC.tabClose, docId),
   tabReorder: (docId, toIndex) => ipcRenderer.send(IPC.tabReorder, docId, toIndex),
   tabDetach: (docId, screenX, screenY) => ipcRenderer.send(IPC.tabDetach, docId, screenX, screenY),
+  showPathMenu: (docId) => ipcRenderer.send(IPC.pathMenu, docId),
   onLoad: (cb) => ipcRenderer.on(IPC.load, (_e, doc: DocPayload) => cb(doc)),
   onTabs: (cb) => ipcRenderer.on(IPC.tabsState, (_e, state: TabsState) => cb(state)),
   onCommand: (cb) => ipcRenderer.on(IPC.command, (_e, command: MenuCommand) => cb(command)),

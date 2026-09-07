@@ -52,6 +52,10 @@ body {
   white-space: nowrap;
   /* Keep clear of the traffic lights on either side. */
   max-width: calc(100% - 12rem);
+  /* Clickable (⌘-click shows the path menu), so the name itself can't
+   * drag the window; the rest of the strip still does. */
+  -webkit-app-region: no-drag;
+  cursor: default;
 }
 
 .titlebar-dirty {
@@ -73,6 +77,13 @@ body {
   align-items: center;
   gap: 0.25rem;
   overflow: hidden;
+}
+
+/* display: flex above would beat the [hidden] attribute the tab bar sets
+ * for a single document, leaving an empty strip stretched over the title
+ * — invisible, but first in line for every click meant for the name. */
+.tabbar[hidden] {
+  display: none;
 }
 
 .tab {

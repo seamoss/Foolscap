@@ -88,8 +88,10 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
   and `⌘Z` still walks yesterday's edits.
 - **So does your place.** A file opens where you left it — the same
   passage on the page, the same line in the editor — however long ago.
-- **Reveal in Finder** and **Copy Path** live in the File menu and `⌘K`;
-  the window has no proxy icon to drag, so these are the way out.
+- **Reveal in Finder** and **Copy Path** live in the File menu and `⌘K`,
+  and `⌘`-click the document's name in the title strip (or its tab) for
+  the path menu — the file and every folder above it, each opening in
+  Finder. The window has no proxy icon to drag, so these are the way out.
 
 ## Appearance
 
