@@ -23,7 +23,12 @@ permissions:
 jobs:
   release:
     # macOS-only for now — nobody here runs the others (README: Platform).
-    runs-on: macos-latest
+    # Pinned, not latest: the macOS 26 image's 25.6 update broke
+    # electron-builder's temporary signing keychain ("SecKeychainUnlock: The
+    # user name or passphrase you entered is not correct" at
+    # set-key-partition-list) — v0.17.0 failed twice on it after nine green
+    # releases. macOS 15 is the last image class that signs.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
