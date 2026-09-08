@@ -66,11 +66,43 @@ function rehypeSourcePositions() {
   }
 }
 
+/* Minimal structural view of an mdast node — enough to retype one kind of
+ * node without pulling in @types/mdast. */
+interface MdastNode {
+  type: string
+  value?: string
+  children?: MdastNode[]
+}
+
+const BR_HTML = /^<br\s*\/?>$/i
+
+/* A literal <br> is a line break. Raw HTML otherwise stays out of the
+ * output (nothing here passes it through), but this one tag is the only
+ * line break a pipe table can hold — a newline ends the row — so the
+ * editor's grid types it on Shift-Enter, and GitHub reads it the same
+ * way. The node is retyped in place: remark-rehype renders `break` as
+ * <br>, exactly like a hard line break. */
+function remarkBrTags() {
+  return (tree: MdastNode): void => {
+    const walk = (node: MdastNode): void => {
+      for (const child of node.children ?? []) {
+        if (child.type === 'html' && child.value !== undefined && BR_HTML.test(child.value)) {
+          child.type = 'break'
+          delete child.value
+        }
+        walk(child)
+      }
+    }
+    walk(tree)
+  }
+}
+
 async function buildProcessor(sourcePositions: boolean) {
   const highlighter = await getHighlighter()
   const base = unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkBrTags)
     .use(remarkRehype)
     .use(rehypeSlug)
   const positioned = sourcePositions ? base.use(rehypeSourcePositions) : base

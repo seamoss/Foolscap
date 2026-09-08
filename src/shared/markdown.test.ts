@@ -48,6 +48,17 @@ describe('renderMarkdown — THE pipeline', () => {
     expect(html).not.toContain('<script>')
   })
 
+  it('a literal <br> is a line break — the one a table cell can hold — in any spelling', async () => {
+    const html = await renderMarkdown('| a |\n| - |\n| x<br>y <br/> z<BR />w |')
+    expect(html).toContain('<td>x<br>\ny <br>\nz<br>\nw</td>')
+  })
+
+  it('<br> breaks a paragraph line too, while other raw tags still stay out', async () => {
+    const html = await renderMarkdown('para<br>two <span>s</span>')
+    expect(html).toContain('<p>para<br>\ntwo s</p>')
+    expect(html).not.toContain('<span>')
+  })
+
   it('unknown fence languages fall back to plain text', async () => {
     const html = await renderMarkdown('```nosuchlang\nplain\n```')
     expect(html).toContain('plain')
