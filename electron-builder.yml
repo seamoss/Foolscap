@@ -10,6 +10,11 @@ directories:
 files:
   - out/**
   - package.json
+# Chromium ships 220 locale packs (47 MB in a universal app, 23 MB per
+# arch); the app itself is English-only, so only that pack ships. The
+# document's own language is unaffected — that's the renderer's text.
+electronLanguages:
+  - en
 extraResources:
   # The PDF exporter embeds these; require.resolve works in dev but not in
   # the packaged app, so they ship as plain resources (src/main/export/pdf.ts

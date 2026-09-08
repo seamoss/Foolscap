@@ -2,7 +2,7 @@ import { syntaxTree } from '@codemirror/language'
 import { StateEffect } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
 import type { SyntaxNodeRef } from '@lezer/common'
-import type { BundledLanguage, LanguageInput } from 'shiki'
+import { grammarFor } from '../../../shared/grammars'
 import { getHighlighter, shikiTheme } from '../../../shared/markdown'
 import { tokenMs } from '../../ui/tokens'
 import type { CollectCtx } from './index'
@@ -79,21 +79,16 @@ function cacheSet(key: string, spans: TokenSpan[]): void {
  * editor is already warm when the same document renders as HTML. */
 
 async function tokenize(lang: string, code: string, key: string): Promise<boolean> {
-  const { bundledLanguages } = await import('shiki')
-  const grammar = (bundledLanguages as Record<string, LanguageInput | undefined>)[lang]
-  if (!grammar) {
+  const name = grammarFor(lang)
+  if (!name) {
     unknownLangs.add(lang)
     return false
   }
   const highlighter = await getHighlighter()
-  if (!highlighter.getLoadedLanguages().includes(lang)) {
-    await highlighter.loadLanguage(grammar)
+  if (!highlighter.getLoadedLanguages().includes(name)) {
+    await highlighter.loadLanguage(name)
   }
-  // The bundledLanguages lookup above proved `lang` is a real language id.
-  const lines = highlighter.codeToTokensBase(code, {
-    lang: lang as BundledLanguage,
-    theme: shikiTheme
-  })
+  const lines = highlighter.codeToTokensBase(code, { lang: name, theme: shikiTheme })
   const spans: TokenSpan[] = []
   let lineStart = 0
   for (const line of lines) {

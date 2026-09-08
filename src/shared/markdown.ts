@@ -4,13 +4,10 @@ import rehypeStringify from 'rehype-stringify'
 import remarkGfm from 'remark-gfm'
 import remarkParse from 'remark-parse'
 import remarkRehype from 'remark-rehype'
-import {
-  createCssVariablesTheme,
-  createHighlighter,
-  createJavaScriptRegexEngine,
-  type Highlighter
-} from 'shiki'
+import { createCssVariablesTheme, createBundledHighlighter, type HighlighterGeneric } from 'shiki/core'
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript'
 import { unified } from 'unified'
+import { GRAMMARS, type GrammarName } from './grammars'
 
 /* THE one markdown pipeline (ULTRAPLAN §3.1 corollary, CLAUDE.md second
  * rule). HTML export and PDF export both render through here — never a
@@ -25,6 +22,17 @@ export const shikiTheme = createCssVariablesTheme({
   fontStyle: true
 })
 
+export type Highlighter = HighlighterGeneric<GrammarName, string>
+
+/* Shiki's bundle factory over Foolscap's own grammar set (grammars.ts)
+ * rather than the full bundle: names resolve against that set, so the
+ * build carries those grammars and no others. */
+const createHighlighter = createBundledHighlighter<GrammarName, string>({
+  langs: GRAMMARS,
+  themes: {},
+  engine: () => createJavaScriptRegexEngine({ forgiving: true })
+})
+
 let highlighterPromise: Promise<Highlighter> | null = null
 
 /* One highlighter per process, shared by this pipeline and the editor's
@@ -34,11 +42,7 @@ let highlighterPromise: Promise<Highlighter> | null = null
  * fetching WASM and registering ~220 grammars up front. Here nothing
  * loads until a fence actually names a language. */
 export function getHighlighter(): Promise<Highlighter> {
-  highlighterPromise ??= createHighlighter({
-    themes: [shikiTheme],
-    langs: [],
-    engine: createJavaScriptRegexEngine({ forgiving: true })
-  })
+  if (!highlighterPromise) highlighterPromise = createHighlighter({ themes: [shikiTheme], langs: [] })
   return highlighterPromise
 }
 
