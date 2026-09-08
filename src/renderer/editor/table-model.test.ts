@@ -4,6 +4,7 @@ import {
   cellRangesOfLine,
   cellSegments,
   commitCell,
+  hasLongToken,
   escapeCellText,
   setCell,
   columnDisplayWidth,
@@ -384,5 +385,25 @@ describe('commitCell — the whole pure commit pipeline', () => {
       ['pear', '20', '0.85'],
       ['', '', '']
     ])
+  })
+})
+
+describe('hasLongToken — a cell that must be allowed to break mid-token', () => {
+  it('ids, words, and short code stay whole', () => {
+    expect(hasLongToken('R01b')).toBe(false)
+    expect(hasLongToken('TASK-20260904-001')).toBe(false)
+    expect(hasLongToken('Blocked, unapproved story with null AC evidence')).toBe(false)
+    expect(hasLongToken('`task set-status ... completed`')).toBe(false)
+  })
+
+  it('a URL, a path, or a hash trips it', () => {
+    expect(hasLongToken('see https://example.com/a/very/long/path here')).toBe(true)
+    expect(hasLongToken('/Users/someone/Code/project/src/index.ts')).toBe(true)
+    expect(hasLongToken('3f6a2dc0cb1736b5f5202b4d62adbf5141e34f47')).toBe(true)
+  })
+
+  it('the threshold is exact', () => {
+    expect(hasLongToken('x'.repeat(24))).toBe(false)
+    expect(hasLongToken('x'.repeat(25))).toBe(true)
   })
 })

@@ -79,6 +79,10 @@
   --pad-table-cell: 0.35em 0.7em;
   /* Ring around the grid cell being edited in place. */
   --table-edit-ring: 2px;
+  /* Narrowest a rendered table column may be (editor grid and preview):
+   * a column is normally floored by its longest word, but an empty one
+   * has none, and it still has to be wide enough to click into. */
+  --table-cell-min-width: 3em;
   /* Floating chrome (table chip bar): window-edge clamp and gap above. */
   --edge-inset: 8px;
   --table-bar-gap: 6px;

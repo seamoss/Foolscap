@@ -26,6 +26,7 @@ import {
   columnDisplayWidth,
   commitCell,
   formatTable,
+  hasLongToken,
   insertRow,
   isDelimiterRow,
   parseTable
@@ -141,6 +142,9 @@ class TableGridWidget extends WidgetType {
         cellRangesOfLine(line).forEach((range, column) => {
           if (column >= model.header.length) return
           const cell = document.createElement(isHeader ? 'th' : 'td')
+          const text = line.slice(range.from, range.to)
+          cell.textContent = text
+          if (hasLongToken(text)) cell.classList.add('fs-cell-breakable')
           fillCell(cell, line.slice(range.from, range.to))
           cell.dataset['pos'] = String(lineOffset + range.from)
           cell.dataset['end'] = String(lineOffset + range.to)

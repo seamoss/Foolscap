@@ -612,9 +612,19 @@ body {
   border: 1px solid var(--rule);
   padding: 0.35em 0.7em;
   text-align: left;
-  /* Tables lay out fixed with draggable column ratios; long unbroken
-   * content (IDs, URLs) must wrap inside its column, not overflow it. */
+  min-width: var(--table-cell-min-width);
+  /* Auto layout keeps a column at least as wide as its longest word (an
+   * ID never breaks mid-token); break-word is the fallback for anything
+   * wider than the column can be. */
   overflow-wrap: break-word;
+}
+
+/* A cell holding a URL-length token (table-model hasLongToken) may break
+ * it anywhere: its column keeps a word-sized floor from the other cells
+ * instead of growing to the token and pushing the table off the page. */
+.preview-doc td.fs-cell-breakable,
+.preview-doc th.fs-cell-breakable {
+  overflow-wrap: anywhere;
 }
 
 .preview-doc th {
