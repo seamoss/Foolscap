@@ -5,11 +5,19 @@
 
 let title: HTMLElement | null = null
 
-export function initTitlebar(): void {
+/* ⌘-click on the name asks for the path menu — the file and the folders
+ * above it, each opening in Finder — the one thing a native title would
+ * have offered that hiddenInset takes away. */
+export function initTitlebar(onPathMenu: () => void): void {
   const strip = document.getElementById('titlebar')
   if (!strip) return
   title = document.createElement('span')
   title.className = 'titlebar-title'
+  title.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || !e.metaKey) return
+    e.preventDefault()
+    onPathMenu()
+  })
   strip.append(title)
 }
 

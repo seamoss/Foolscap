@@ -5,6 +5,7 @@ import { basename, dirname } from 'node:path'
 import { DROPPABLE_FILE, IPC, type AppCommand, type ConflictChoice, type RecentFile } from '../shared/types'
 import { readTextFile } from './files'
 import type { MenuActions } from './menu'
+import { showPathMenu } from './path-menu'
 import { positions } from './positions-store'
 import { setAutosaveEnabled, type WindowSession } from './session'
 import { updates } from '#updater'
@@ -59,6 +60,14 @@ export function registerIpc(
     if (session && Number.isFinite(x) && Number.isFinite(y)) {
       void detachTab(session, docId, x, y)
     }
+  })
+  ipcMain.on(IPC.pathMenu, (e, docId: unknown) => {
+    const session = sessionFor(e.sender.id)
+    if (!session) return
+    // The path comes from the tab, never the renderer.
+    const tab = typeof docId === 'number' ? session.tab(docId) : session.activeTab
+    const path = tab?.getPath()
+    if (path) void showPathMenu(session.window, path)
   })
   ipcMain.on(IPC.exec, (e, command: AppCommand) => {
     const session = sessionFor(e.sender.id)

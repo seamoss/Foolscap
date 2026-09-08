@@ -14,6 +14,8 @@ export interface TabBarHooks {
   onReorder(docId: number, toIndex: number): void
   onDetach(docId: number, screenX: number, screenY: number): void
   onNewTab(): void
+  /* ⌘-click: the path menu for this tab's file. */
+  onPathMenu(docId: number): void
 }
 
 const DRAG_START_PX = 4
@@ -115,6 +117,12 @@ export class TabBar {
 
   private onPointerDown(e: PointerEvent, docId: number, el: HTMLElement): void {
     if (e.button !== 0) return
+    // ⌘-click asks where the file lives; it neither activates nor drags.
+    if (e.metaKey) {
+      e.preventDefault()
+      this.hooks.onPathMenu(docId)
+      return
+    }
     const tabs = [...this.el.querySelectorAll<HTMLElement>('.tab')]
     this.drag = {
       docId,
