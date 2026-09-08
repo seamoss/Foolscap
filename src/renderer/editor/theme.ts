@@ -152,11 +152,14 @@ const editorTheme = EditorView.theme({
     background: 'var(--paper-sunk)'
   },
   /* The cell being edited in place: an inset ring (outline-offset pulls it
-   * inward) so focusing a cell never shifts layout. */
+   * inward) so focusing a cell never shifts layout. pre-wrap: plaintext
+   * editing breaks a line (Shift-Enter) with a newline character, and it
+   * has to show as a new line while typing, before it commits as <br>. */
   '.fs-table-grid .fs-editing-cell': {
     outline: 'var(--table-edit-ring) solid var(--accent)',
     outlineOffset: 'calc(-1 * var(--table-edit-ring))',
-    caretColor: 'var(--accent)'
+    caretColor: 'var(--accent)',
+    whiteSpace: 'pre-wrap'
   },
 
   /* ---- Blockquotes: sunk paper fill ---- */

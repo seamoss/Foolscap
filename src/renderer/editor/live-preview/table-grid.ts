@@ -22,6 +22,7 @@ import {
 import type { Tree } from '@lezer/common'
 import {
   cellRangesOfLine,
+  cellSegments,
   columnDisplayWidth,
   commitCell,
   formatTable,
@@ -140,7 +141,7 @@ class TableGridWidget extends WidgetType {
         cellRangesOfLine(line).forEach((range, column) => {
           if (column >= model.header.length) return
           const cell = document.createElement(isHeader ? 'th' : 'td')
-          cell.textContent = line.slice(range.from, range.to)
+          fillCell(cell, line.slice(range.from, range.to))
           cell.dataset['pos'] = String(lineOffset + range.from)
           cell.dataset['end'] = String(lineOffset + range.to)
           cell.dataset['row'] = String(contentRow)
@@ -194,7 +195,10 @@ class TableGridWidget extends WidgetType {
     let pos = base + Number(cell.dataset['pos'])
     const caret = document.caretPositionFromPoint?.(event.clientX, event.clientY)
     if (caret?.offsetNode?.nodeType === Node.TEXT_NODE && cell.contains(caret.offsetNode)) {
-      pos = Math.min(pos + caret.offset, base + Number(cell.dataset['end']))
+      pos = Math.min(
+        pos + cellOffsetOf(cell, caret.offsetNode, caret.offset),
+        base + Number(cell.dataset['end'])
+      )
     }
     return pos
   }
@@ -260,9 +264,10 @@ export function tableGridCoversPos(state: EditorState, pos: number): boolean {
  * Typing edits only the cell's DOM (ignoreEvent keeps CodeMirror's
  * handlers and MutationObserver entirely out of the widget); the document
  * updates in ONE transaction when the edit ends — Tab/Shift-Tab and Enter
- * move on and keep editing, click-away and window blur stop, Escape
- * cancels. The commit dispatch never carries a selection, so the CM
- * cursor stays outside the table and the grid never drops. Dispatch
+ * move on and keep editing (Shift-Enter stays put and breaks the line
+ * inside the cell), click-away and window blur stop, Escape cancels. The
+ * commit dispatch never carries a selection, so the CM cursor stays
+ * outside the table and the grid never drops. Dispatch
  * builds widget DOM synchronously, which is what lets a continuation
  * re-acquire the rebuilt table and focus the next cell in the same
  * event. ---- */
@@ -281,15 +286,82 @@ interface EditSession {
   teardown: () => void
 }
 
-/* The cell's text as typed: plaintext-only contenteditable still lets a
- * paste carry newlines, as text or as <br>. escapeCellText flattens both
- * once they're serialized uniformly. */
+/* ---- Cell DOM <-> cell source. A cell's source is plain text with <br>
+ * tags for line breaks; its DOM is text nodes with <br> elements between,
+ * each element remembering the exact tag it came from (data-src) so the
+ * cell reads back byte-identical — a click-in, click-out never dirties
+ * the file. A break made while editing arrives as a newline character
+ * (Shift-Enter in plaintext-only editing, a multi-line paste) or, from a
+ * rich paste, a <br> without data-src; both read as a newline, which
+ * escapeCellText commits as <br>. ---- */
+
+function fillCell(cell: HTMLElement, source: string): void {
+  cell.replaceChildren()
+  for (const segment of cellSegments(source)) {
+    if (segment.kind === 'text') {
+      cell.append(document.createTextNode(segment.text))
+    } else {
+      const br = document.createElement('br')
+      br.dataset['src'] = segment.source
+      cell.append(br)
+    }
+  }
+}
+
+/* The cell's text as typed, with each break as its source tag or, for a
+ * break the browser made, a newline. */
 function cellDomText(cell: HTMLElement): string {
   let out = ''
   cell.childNodes.forEach((node) => {
-    out += node.nodeName === 'BR' ? '\n' : (node.textContent ?? '')
+    if (node.nodeName === 'BR') {
+      out += (node instanceof HTMLElement ? node.dataset['src'] : undefined) ?? '\n'
+    } else {
+      out += node.textContent ?? ''
+    }
   })
   return out
+}
+
+/* Source characters one cell child stands for: a text node's own, or the
+ * <br> tag's spelling (a browser-made break counts as the <br> it will
+ * commit as). Keeps click and caret math honest across breaks. */
+function nodeSourceLength(node: Node): number {
+  if (node.nodeName !== 'BR') return node.textContent?.length ?? 0
+  const src = node instanceof HTMLElement ? node.dataset['src'] : undefined
+  return (src ?? '<br>').length
+}
+
+/* Source offset within the cell of a DOM point inside it. */
+function cellOffsetOf(cell: HTMLElement, node: Node, offset: number): number {
+  let at = 0
+  for (const child of cell.childNodes) {
+    if (child === node) return at + offset
+    if (child.contains(node)) return at
+    at += nodeSourceLength(child)
+  }
+  return at
+}
+
+/* The DOM point for a source offset within the cell: inside a text node,
+ * or — when the offset falls within a <br> tag — just after the break.
+ * Null past the end. */
+function pointAtCellOffset(
+  cell: HTMLElement,
+  index: number
+): { node: Node; offset: number } | null {
+  let remaining = index
+  let childIndex = 0
+  for (const child of cell.childNodes) {
+    const len = nodeSourceLength(child)
+    if (child.nodeType === Node.TEXT_NODE) {
+      if (remaining <= len) return { node: child, offset: Math.max(0, remaining) }
+    } else if (remaining < len) {
+      return { node: cell, offset: remaining <= 0 ? childIndex : childIndex + 1 }
+    }
+    remaining -= len
+    childIndex++
+  }
+  return null
 }
 
 /* Source offset of a cell's content start within table text — the ⌥-click
@@ -429,7 +501,7 @@ class CellEditor {
       row,
       col,
       tableText: grid.text,
-      original: cell.textContent ?? '',
+      original: cellDomText(cell),
       teardown: () => {
         cell.removeEventListener('keydown', onKeydown)
         cell.removeEventListener('input', onInput)
@@ -447,13 +519,18 @@ class CellEditor {
     if (!s) return
     if (e.key === 'Escape') {
       e.preventDefault()
-      s.cell.textContent = s.original
+      fillCell(s.cell, s.original)
       this.cancel()
       this.view.focus()
     } else if (e.key === 'Tab') {
       e.preventDefault()
       this.continueEdit(e.shiftKey ? -1 : 1, 'cell')
     } else if (e.key === 'Enter') {
+      // Shift-Enter is left to the browser: plaintext-only editing inserts
+      // a newline character, the editing cell's pre-wrap shows it as a new
+      // line, and it commits as <br> — the one line break a pipe table can
+      // hold. Plain Enter moves down.
+      if (e.shiftKey) return
       e.preventDefault()
       this.continueEdit(1, 'row')
     }
@@ -619,17 +696,20 @@ class CellEditor {
       }
       caret = 'end'
     }
-    const textNode = cell.firstChild
-    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+    if (caret === 'all') {
       range.selectNodeContents(cell)
-      range.collapse(true)
-    } else if (caret === 'all') {
+    } else if (caret === 'start' || caret === 'end') {
       range.selectNodeContents(cell)
+      range.collapse(caret === 'start')
     } else {
-      const len = textNode.textContent?.length ?? 0
-      const at = typeof caret === 'object' ? Math.min(caret.index, len) : caret === 'start' ? 0 : len
-      range.setStart(textNode, Math.max(0, at))
-      range.collapse(true)
+      const point = pointAtCellOffset(cell, caret.index)
+      if (point) {
+        range.setStart(point.node, point.offset)
+        range.collapse(true)
+      } else {
+        range.selectNodeContents(cell)
+        range.collapse(false)
+      }
     }
     sel.removeAllRanges()
     sel.addRange(range)

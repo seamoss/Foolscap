@@ -327,14 +327,44 @@ export function setCell(model: TableModel, row: number, col: number, text: strin
   }
 }
 
-/* Raw cell-DOM text -> committable content: newlines (paste can carry
- * them) flatten to single spaces, edges trim, and bare pipes escape so a
- * typed | edits the cell instead of splitting it. An existing \| passes
- * through untouched — the same already-escaped reading splitRow applies,
- * which also means a cell ending in a literal backslash followed by a
- * typed pipe reads as one escaped pipe; that ambiguity is GFM's own. */
+/* ---- Line breaks inside a cell ----
+ * A pipe table has no way to break a line inside a cell — a newline ends
+ * the row — so the convention, GitHub's included, is a literal <br>. The
+ * grid shows one as a real break and Shift-Enter types one; the file
+ * keeps plain pipes with a <br> in the cell, readable anywhere. */
+
+const BR_TAG = /<br\s*\/?>/gi
+
+export type CellSegment = { kind: 'text'; text: string } | { kind: 'break'; source: string }
+
+/* Split cell source on <br> tags (<br>, <br/>, <br />, any case), keeping
+ * each tag's exact spelling so a rendered cell reads back byte-identical.
+ * Empty text runs are dropped; the segments concatenate to the source. */
+export function cellSegments(text: string): CellSegment[] {
+  const segments: CellSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(BR_TAG)) {
+    const at = match.index ?? 0
+    if (at > last) segments.push({ kind: 'text', text: text.slice(last, at) })
+    segments.push({ kind: 'break', source: match[0] })
+    last = at + match[0].length
+  }
+  if (last < text.length) segments.push({ kind: 'text', text: text.slice(last) })
+  return segments
+}
+
+/* Raw cell-DOM text -> committable content: newlines (Shift-Enter types
+ * one; a paste can carry them) become <br>, the one line break a cell can
+ * hold, with the spaces around each stripped; edges trim; and bare pipes
+ * escape so a typed | edits the cell instead of splitting it. An existing
+ * \| passes through untouched — the same already-escaped reading splitRow
+ * applies, which also means a cell ending in a literal backslash followed
+ * by a typed pipe reads as one escaped pipe; that ambiguity is GFM's own. */
 export function escapeCellText(raw: string): string {
-  const flat = raw.replace(/\s*\r?\n\s*/g, ' ').replace(/\r/g, ' ').trim()
+  const flat = raw
+    .replace(/\r\n?/g, '\n')
+    .trim()
+    .replace(/[ \t]*\n[ \t]*/g, '<br>')
   let out = ''
   for (let i = 0; i < flat.length; i++) {
     const ch = flat[i]

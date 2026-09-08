@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   adjustColumnWidth,
   cellRangesOfLine,
+  cellSegments,
   commitCell,
   escapeCellText,
   setCell,
@@ -275,13 +276,65 @@ describe('escapeCellText — raw cell DOM text to committable content', () => {
     expect(escapeCellText('a | b')).toBe('a \\| b')
   })
 
-  it('flattens newlines to single spaces and trims', () => {
-    expect(escapeCellText('  line one\nline two  ')).toBe('line one line two')
-    expect(escapeCellText('a\r\n\r\nb')).toBe('a b')
+  it('newlines become <br> — the one line break a cell can hold — with the spaces around them stripped', () => {
+    expect(escapeCellText('  line one\nline two  ')).toBe('line one<br>line two')
+    expect(escapeCellText('a \n\t b')).toBe('a<br>b')
+    expect(escapeCellText('a\r\n\r\nb')).toBe('a<br><br>b')
+    expect(escapeCellText('a\rb')).toBe('a<br>b')
+  })
+
+  it('newlines at the edges trim away instead of leaving a dangling break', () => {
+    expect(escapeCellText('\na\n')).toBe('a')
+    expect(escapeCellText('\n\n')).toBe('')
+  })
+
+  it('an existing <br> tag passes through as text, whatever its spelling', () => {
+    expect(escapeCellText('p<br />q')).toBe('p<br />q')
+    expect(escapeCellText('p<BR>q\nr')).toBe('p<BR>q<br>r')
   })
 
   it('a trailing backslash before a typed pipe reads as one escaped pipe (GFM ambiguity)', () => {
     expect(escapeCellText('path\\|col')).toBe('path\\|col')
+  })
+})
+
+describe('cellSegments — cell source split on <br> tags', () => {
+  it('plain text is one segment; an empty cell is none', () => {
+    expect(cellSegments('hello')).toEqual([{ kind: 'text', text: 'hello' }])
+    expect(cellSegments('')).toEqual([])
+  })
+
+  it('splits on every spelling of the tag, keeping each one exactly', () => {
+    expect(cellSegments('x<br>y <br/>z<BR />w')).toEqual([
+      { kind: 'text', text: 'x' },
+      { kind: 'break', source: '<br>' },
+      { kind: 'text', text: 'y ' },
+      { kind: 'break', source: '<br/>' },
+      { kind: 'text', text: 'z' },
+      { kind: 'break', source: '<BR />' },
+      { kind: 'text', text: 'w' }
+    ])
+  })
+
+  it('breaks at the edges or back to back yield no empty text runs', () => {
+    expect(cellSegments('<br>a<br><br>')).toEqual([
+      { kind: 'break', source: '<br>' },
+      { kind: 'text', text: 'a' },
+      { kind: 'break', source: '<br>' },
+      { kind: 'break', source: '<br>' }
+    ])
+  })
+
+  it('segments concatenate back to the source', () => {
+    const source = 'one<br />two <br>three'
+    const joined = cellSegments(source)
+      .map((s) => (s.kind === 'text' ? s.text : s.source))
+      .join('')
+    expect(joined).toBe(source)
+  })
+
+  it('a tag that is not a break is plain text', () => {
+    expect(cellSegments('<b>x</b><bra>')).toEqual([{ kind: 'text', text: '<b>x</b><bra>' }])
   })
 })
 
@@ -307,6 +360,19 @@ describe('commitCell — the whole pure commit pipeline', () => {
     const next = commitCell(CLEAN, 1, 0, 'a | b')
     expect(parseTable(next ?? '').rows[0]?.[0]).toBe('a \\| b')
     expect(parseTable(next ?? '').rows[0]).toHaveLength(3)
+  })
+
+  it('a line break typed in a cell (Shift-Enter) lands as <br> in one cell, rows intact', () => {
+    const next = commitCell(CLEAN, 1, 0, 'green\napple')
+    const model = parseTable(next ?? '')
+    expect(model.rows[0]?.[0]).toBe('green<br>apple')
+    expect(model.rows).toHaveLength(2)
+    expect((next ?? '').split('\n')).toHaveLength(4)
+  })
+
+  it('a cell holding a <br> is a no-op commit when read back unchanged', () => {
+    const withBreak = commitCell(CLEAN, 1, 0, 'green<br />apple') ?? ''
+    expect(commitCell(withBreak, 1, 0, 'green<br />apple')).toBeNull()
   })
 
   it('Enter on the last row: commit plus insertRow composes cleanly', () => {
