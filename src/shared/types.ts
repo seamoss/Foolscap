@@ -115,6 +115,7 @@ export type MenuCommand =
   | 'format-code'
   | 'format-link'
   | 'browse-versions'
+  | 'copy-rich-text'
 
 /* A new version, downloaded and verified by src/main/updater.ts — ready to
  * install the moment the app restarts. */
@@ -173,6 +174,7 @@ export const IPC = {
   recentFiles: 'files:recent',
   openRecent: 'file:open-recent',
   loadCustomTheme: 'theme:load-custom',
+  copyRichText: 'doc:copy-rich-text',
   tabActivate: 'tabs:activate',
   tabClose: 'tabs:close',
   tabReorder: 'tabs:reorder',
@@ -235,6 +237,9 @@ export interface FoolscapApi {
   openRecent(path: string): void
   /* Pick and read a custom theme css file; null if cancelled. */
   loadCustomTheme(): Promise<string | null>
+  /* Put the rendered document on the clipboard as rich text; false when
+   * the copy could not be built. */
+  copyRichText(docId: number): Promise<boolean>
   /* Tab intents — the renderer's bar clicks and drags. */
   tabActivate(docId: number): void
   tabClose(docId: number): void

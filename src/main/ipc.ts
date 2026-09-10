@@ -119,6 +119,10 @@ export function registerIpc(
       void sessionFor(e.sender.id)?.openPath(path)
     }
   })
+  ipcMain.handle(
+    IPC.copyRichText,
+    (e, docId: number) => sessionFor(e.sender.id)?.tab(docId)?.copyRichText() ?? false
+  )
   ipcMain.handle(IPC.updateCheck, () => updates.checkNow())
   ipcMain.handle(IPC.loadCustomTheme, async () => {
     const result = await dialog.showOpenDialog({

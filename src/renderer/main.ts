@@ -408,6 +408,7 @@ window.foolscap.onCommand((command) => {
   else if (command === 'text-reset') applyTextSize(null)
   else if (command === 'open-settings') settings.toggle()
   else if (command === 'check-updates') checkUpdatesNow()
+  else if (command === 'copy-rich-text') void copyRichText()
   else if (command === 'format-bold') formatInEditor(toggleBold)
   else if (command === 'format-italic') formatInEditor(toggleItalic)
   else if (command === 'format-strike') formatInEditor(toggleStrikethrough)
@@ -425,6 +426,14 @@ function withPath(run: (path: string) => void): void {
   const path = displayedDoc()?.path
   if (path) run(path)
   else showToast('Save the document first — an untitled draft has no file yet.')
+}
+
+/* Main builds and writes the clipboard; the toast belongs here, where
+ * every other piece of feedback lives. */
+async function copyRichText(): Promise<void> {
+  if (displayedId === null) return
+  const copied = await window.foolscap.copyRichText(displayedId)
+  showToast(copied ? 'Copied with formatting.' : 'That copy could not be built.')
 }
 
 const paletteCommands = (): PaletteCommand[] => [
@@ -451,6 +460,12 @@ const paletteCommands = (): PaletteCommand[] => [
         window.foolscap.exec('file-copy-path')
         showToast('Path copied.')
       })
+  },
+  {
+    id: 'copy-rich-text',
+    title: 'Copy as Rich Text',
+    hint: `⌥${mod}C`,
+    run: () => void copyRichText()
   },
   {
     id: 'find',

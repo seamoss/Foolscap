@@ -36,6 +36,7 @@ const api: FoolscapApi = {
   recentFiles: () => ipcRenderer.invoke(IPC.recentFiles),
   openRecent: (path: string) => ipcRenderer.send(IPC.openRecent, path),
   loadCustomTheme: (): Promise<string | null> => ipcRenderer.invoke(IPC.loadCustomTheme),
+  copyRichText: (docId) => ipcRenderer.invoke(IPC.copyRichText, docId),
   tabActivate: (docId) => ipcRenderer.send(IPC.tabActivate, docId),
   tabClose: (docId) => ipcRenderer.send(IPC.tabClose, docId),
   tabReorder: (docId, toIndex) => ipcRenderer.send(IPC.tabReorder, docId, toIndex),

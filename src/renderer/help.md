@@ -88,6 +88,10 @@ Double-click anywhere to drop into the editor exactly there. `⌘E` or
   and `⌘Z` still walks yesterday's edits.
 - **So does your place.** A file opens where you left it — the same
   passage on the page, the same line in the editor — however long ago.
+- **Copy as Rich Text** (`⌥⌘C`, File menu, `⌘K`) puts the document on the
+  clipboard the way preview renders it — paste into Google Docs, Word, or
+  a CMS and the tables, code, and quotes arrive formatted. Plain-text
+  destinations get the markdown itself.
 - **Reveal in Finder** and **Copy Path** live in the File menu and `⌘K`;
   the window has no proxy icon to drag, so these are the way out.
 

@@ -14,6 +14,7 @@ import {
 } from '../shared/types'
 import { renderExportHtml } from './export/html'
 import { printDocument, renderPdf } from './export/pdf'
+import { buildRichText } from './export/rich-text'
 import { closedTabs } from './closed-tabs'
 import { assetName, atomicWriteFile, readTextFile, watchFile } from './files'
 import { docKey, listSnapshots, pruneSnapshots, readSnapshot, writeSnapshot } from './history-store'
@@ -447,6 +448,21 @@ export class TabSession {
 
   copyPath(): void {
     if (this.path) clipboard.writeText(this.path)
+  }
+
+  /* The document as the preview renders it, on the clipboard: HTML with
+   * every style inlined for a paste into Docs, Word, or a CMS, and the
+   * markdown itself as the plain-text flavor. Boolean rather than a
+   * dialog — a copy that failed is worth one toast, not a modal. */
+  async copyRichText(): Promise<boolean> {
+    try {
+      const content = await this.getRendererContent()
+      const rich = await buildRichText(content, this.path ? dirname(this.path) : null)
+      clipboard.write({ text: rich.text, html: rich.html })
+      return true
+    } catch {
+      return false
+    }
   }
 
   private async pickExportPath(label: string, ext: string): Promise<string | null> {
