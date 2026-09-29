@@ -148,6 +148,9 @@ interface ColumnResize {
   onUp: () => void
 }
 
+/* Enough for a working set of tabs; each entry is one document's HTML. */
+const RENDER_CACHE_SIZE = 12
+
 export class Preview {
   private readonly el: HTMLElement
   visible = false
@@ -159,6 +162,9 @@ export class Preview {
    * switch mid-render. Only the newest show may touch the pane; an older
    * one finishing later must not overwrite its HTML or its visibility. */
   private showGen = 0
+  /* Rendered HTML by source, newest last — flipping back to a tab whose
+   * text hasn't changed skips the pipeline and paints on the next frame. */
+  private readonly rendered = new Map<string, string>()
 
   constructor(
     private readonly onEdit: (pos: number, screenTop?: number) => void,
@@ -234,8 +240,14 @@ export class Preview {
    * show superseded it mid-render, in which case nothing was touched. */
   async show(markdown: string, docDir: string | null, nearPos: number): Promise<boolean> {
     const gen = ++this.showGen
-    const html = await renderMarkdown(markdown, { sourcePositions: true })
+    const html = this.rendered.get(markdown) ?? (await renderMarkdown(markdown, { sourcePositions: true }))
     if (gen !== this.showGen) return false
+    this.rendered.delete(markdown)
+    this.rendered.set(markdown, html)
+    for (const key of this.rendered.keys()) {
+      if (this.rendered.size <= RENDER_CACHE_SIZE) break
+      this.rendered.delete(key)
+    }
     this.markdown = markdown
     this.docDir = docDir
     this.render(html)
