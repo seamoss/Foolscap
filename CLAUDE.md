@@ -49,7 +49,17 @@ component. If a token is missing, add it to tokens.css first.
   phase until the current phase's acceptance criteria pass.
 - Within Phase 2, build one markdown construct at a time, in the listed order,
   with tests, before moving to the next.
-- Run `pnpm test` and `pnpm typecheck` before declaring anything done.
+- Every change ships with the test that would have caught its regression,
+  at the layer docs/adr/0001-testing.md assigns from the diff's file list:
+  a unit test for a pure module (bug fixes: written first, failing before
+  the fix); a golden fixture for `src/shared/markdown.ts`; an end-to-end
+  case in `scripts/e2e/cases` for `src/renderer/main.ts`,
+  `src/renderer/ui/preview.ts`, `src/main/session.ts`, `src/main/index.ts`,
+  `src/main/ipc.ts`, or any IPC channel change. Decide the layer before
+  writing the change. Nothing is done until `pnpm typecheck`, `pnpm test`,
+  and — when the diff touches that list — `pnpm build && pnpm e2e` have
+  run and passed in this session. Coverage floors in vitest.config.ts are
+  a ratchet: raise them with coverage, never lower them.
 - Version every addition (semver, pre-1.0): user-facing features bump minor,
   fixes bump patch. Bump package.json and annotated-tag vX.Y.Z in the same
   commit as the change.

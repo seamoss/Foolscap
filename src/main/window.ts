@@ -55,7 +55,12 @@ export function createWindow(): BrowserWindow {
       ? { titleBarStyle: 'hiddenInset' as const }
       : { frame: false }),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js')
+      preload: join(__dirname, '../preload/index.js'),
+      // Dev-only: FOOLSCAP_E2E=1 makes the renderer publish its test bridge
+      // (window.__foolscap, see renderer main.ts) for scripts/e2e. The flag
+      // rides in as a process argument because a sandboxed preload can read
+      // argv but not the environment. Packaged builds never set it.
+      additionalArguments: process.env['FOOLSCAP_E2E'] === '1' && !app.isPackaged ? ['--foolscap-e2e'] : []
     }
   })
 

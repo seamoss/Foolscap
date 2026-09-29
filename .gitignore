@@ -6,3 +6,4 @@ dist/
 PLAYGROUND.md
 assets/
 *.provisionprofile
+coverage/

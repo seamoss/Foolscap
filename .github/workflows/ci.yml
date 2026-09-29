@@ -17,5 +17,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm test
+      # With the coverage floors from vitest.config.ts (docs/adr/0001-testing.md).
+      - run: pnpm test:coverage
       - run: pnpm build
+
+  # The end-to-end suite: the built app, an isolated profile, real input
+  # events over the DevTools protocol. macOS 15, like the release job — the
+  # macOS 26 image broke code signing, and this needs a window server.
+  e2e:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm e2e

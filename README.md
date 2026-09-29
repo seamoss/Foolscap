@@ -93,6 +93,13 @@ open "foolscap://open?path=$(python3 -c 'import urllib.parse,sys;print(urllib.pa
 macOS learns the scheme the first time Foolscap launches. Browsers ask
 before handing a link to an app; Chrome can remember the answer.
 
+## Testing
+
+Three layers, and [docs/adr/0001-testing.md](docs/adr/0001-testing.md)
+says which one a change needs: `pnpm test` (vitest, with coverage floors
+under `pnpm test:coverage`), the golden fixtures in `fixtures/`, and
+`pnpm e2e`, which drives the built app through real input events.
+
 ## Building
 
 ```

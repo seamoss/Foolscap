@@ -15,6 +15,7 @@ import {
 const api: FoolscapApi = {
   platform: process.platform,
   edition: __FOOLSCAP_EDITION__,
+  e2e: process.argv.includes('--foolscap-e2e'),
   setDirty: (docId, dirty) => ipcRenderer.send(IPC.dirty, docId, dirty),
   sendContent: (docId, content) => ipcRenderer.send(IPC.content, docId, content),
   sendState: (docId, content, history, position) =>

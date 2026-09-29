@@ -205,6 +205,9 @@ export interface FoolscapApi {
   /* Which build this is: 'direct' self-updates and offers a manual check;
    * 'store' leaves all of that to the Mac App Store and shows none of it. */
   readonly edition: Edition
+  /* True only in a from-source run launched with FOOLSCAP_E2E=1: the
+   * renderer then publishes its internals for scripts/e2e. */
+  readonly e2e: boolean
   setDirty(docId: number, dirty: boolean): void
   sendContent(docId: number, content: string): void
   /* Reply to requestState: the buffer plus its serialized undo history
