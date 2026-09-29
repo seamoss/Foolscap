@@ -89,6 +89,14 @@ export function installMenu(actions: MenuActions): void {
       ]
     },
     {
+      /* Beside Export, not in Edit: it is the same act — the rendered
+       * document, somewhere else — and Edit's copy belongs to the
+       * selection. ⌥⌘C because ⇧⌘C is inline code. */
+      label: 'Copy as Rich Text',
+      accelerator: 'Alt+CmdOrCtrl+C',
+      click: () => sendCommand('copy-rich-text')
+    },
+    {
       label: 'Print…',
       accelerator: 'CmdOrCtrl+P',
       click: () => void actions.focused()?.activeTab?.printDoc()
