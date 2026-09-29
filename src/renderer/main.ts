@@ -800,11 +800,14 @@ window.foolscap.onLoad((doc) => {
   docs.set(doc.docId, opened)
   if (doc.docId === displayedId) {
     // A reload of the visible document replaces the buffer in place and
-    // leaves the scroll alone; a file opening into the untitled tab already
-    // showing lands where it was last left.
+    // keeps the exact scroll — setState alone lands wherever CodeMirror
+    // puts the caret's line, up to two screens away from where the reader
+    // was. A file opening into the untitled tab already showing lands
+    // where it was last left.
     hideConflictBar()
+    if (doc.reason === 'reload') opened.scrollTop = editor.view.scrollDOM.scrollTop
     editor.view.setState(state)
-    if (opened.restoreTop !== null) restoreView(opened)
+    restoreView(opened)
     outline.refresh()
     modes.refresh()
   } else if (displayedId === null || tabsState?.active === doc.docId) {
@@ -901,6 +904,22 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => rememberWhereabouts())
 
 editor.view.focus()
+
+/* The end-to-end suite's window into the renderer (docs/adr/0001-testing.md).
+ * Only a from-source run launched with FOOLSCAP_E2E=1 gets it; a packaged
+ * app never does. Read-mostly: the suite drives the app through real input
+ * events and the preload bridge, and uses this to observe. */
+if (window.foolscap.e2e) {
+  Object.assign(window, {
+    __foolscap: {
+      view: editor.view,
+      docs,
+      displayed: () => displayedId,
+      tabs: () => tabsState,
+      preview
+    }
+  })
+}
 
 // Warm the markdown pipeline (processor + highlighter creation) now, so the
 // first preview or help render pays only for rendering. Concurrent callers
