@@ -52,6 +52,7 @@ const api: FoolscapApi = {
   onConflict: (cb) => ipcRenderer.on(IPC.conflict, (_e, docId: number) => cb(docId)),
   onUpdateReady: (cb) => ipcRenderer.on(IPC.updateReady, (_e, update: UpdatePayload) => cb(update)),
   onUpdatedTo: (cb) => ipcRenderer.on(IPC.updatedTo, (_e, version: string) => cb(version)),
+  onNotice: (cb) => ipcRenderer.on(IPC.notice, (_e, message: string) => cb(message)),
   checkForUpdates: () => ipcRenderer.invoke(IPC.updateCheck)
 }
 

@@ -191,7 +191,8 @@ export const IPC = {
   tabsState: 'tabs:state',
   updateReady: 'app:update-ready',
   updateCheck: 'app:update-check',
-  updatedTo: 'app:updated-to'
+  updatedTo: 'app:updated-to',
+  notice: 'app:notice'
 } as const
 
 /* The contextBridge surface. Implemented in src/preload/index.ts, consumed as
@@ -262,6 +263,8 @@ export interface FoolscapApi {
   onUpdateReady(cb: (update: UpdatePayload) => void): void
   /* First launch after an update installed — the victory-lap toast. */
   onUpdatedTo(cb: (version: string) => void): void
+  /* A one-line message from main, shown as a toast (e.g. a bad foolscap:// link). */
+  onNotice(cb: (message: string) => void): void
   /* User-initiated check; resolves to a toastable outcome, never rejects. */
   checkForUpdates(): Promise<UpdateCheckResult>
 }

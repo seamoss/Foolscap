@@ -72,6 +72,27 @@ here, the package is `Foolscap-0.16.0-mas-universal.pkg`, and each Store
 submission is tagged `v0.16.0-mas.1` (the bundle's own version string must
 stay plain digits, Apple's rule, so it is the same `0.16.0` in both).
 
+## Opening files by link
+
+Other apps and web pages can open a document in Foolscap with a link:
+
+```
+foolscap://open?path=<URL-encoded absolute path>
+foolscap://open?path=%2FUsers%2Fyou%2Fnotes%2Fbrief.md
+```
+
+The path must be absolute and point at an existing `.md`, `.markdown`, or
+`.txt` file; anything else shows a short error and opens nothing. A file
+that's already open gets its tab brought forward instead of a second copy.
+From a terminal:
+
+```
+open "foolscap://open?path=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=""))' /absolute/path/to/some.md)"
+```
+
+macOS learns the scheme the first time Foolscap launches. Browsers ask
+before handing a link to an app; Chrome can remember the answer.
+
 ## Building
 
 ```

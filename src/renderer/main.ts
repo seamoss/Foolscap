@@ -884,6 +884,7 @@ window.foolscap.onUpdateReady(({ version }) =>
 )
 
 window.foolscap.onUpdatedTo((version) => showToast(`Foolscap updated to ${version}.`))
+window.foolscap.onNotice((message) => showToast(message))
 
 /* Leaving the app (or the window) is a save point: whatever the debounce
  * was still waiting on writes now — and where the reader was is noted. */

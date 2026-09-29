@@ -31,6 +31,11 @@ fileAssociations:
     description: Markdown document
     role: Editor
     rank: Alternate
+# foolscap://open?path=<absolute path> — becomes CFBundleURLTypes on macOS
+# (src/main/open-link.ts handles the links).
+protocols:
+  - name: Foolscap
+    schemes: [foolscap]
 mac:
   category: public.app-category.productivity
   icon: build/icon.icns

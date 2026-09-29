@@ -6,6 +6,7 @@ import { pathsFromArgv, type ArgvFilter } from './cli'
 import { closedTabs } from './closed-tabs'
 import { registerIpc } from './ipc'
 import { installMenu, type MenuActions } from './menu'
+import { isOpenLink, LINK_SCHEME, parseOpenLink } from './open-link'
 import { positions } from './positions-store'
 import { WindowSession } from './session'
 import { clearSession, loadSession, saveSession, type WindowEntry } from './session-store'
@@ -56,6 +57,14 @@ if (!gotLock) {
   const fileExists = (path: string): boolean => {
     try {
       return statSync(path, { throwIfNoEntry: false }) !== undefined
+    } catch {
+      return false
+    }
+  }
+
+  const isFile = (path: string): boolean => {
+    try {
+      return statSync(path, { throwIfNoEntry: false })?.isFile() === true
     } catch {
       return false
     }
@@ -208,6 +217,30 @@ if (!gotLock) {
     }
   }
 
+  /* foolscap://open?path=… (src/main/open-link.ts). A good link is just
+   * another file from outside — same batching, same already-open check, same
+   * choice of window. A bad one opens nothing and says why in a toast.
+   * Links arriving before ready queue raw and resolve alongside the launch
+   * arguments, so a cold launch from a link restores the session too. */
+  const pendingLinks: string[] = []
+
+  const toastSomewhere = (message: string): void => {
+    const target = focusedSession() ?? [...sessions.values()][0] ?? boot()
+    target.notify(message)
+    target.focus()
+  }
+
+  const openLink = (raw: string): void => {
+    if (!appReady) {
+      pendingLinks.push(raw)
+      return
+    }
+    const result = parseOpenLink(raw, isFile)
+    console.log(`[foolscap] link: ${result.ok ? result.path : result.error}`)
+    if (result.ok) openFileFromOutside(result.path)
+    else toastSomewhere(result.error)
+  }
+
   /* Drag-out: the tab leaves its window — buffer, watcher, and all — and
    * lands as the sole tab of a new window under the cursor. */
   const detachTab = async (source: WindowSession, docId: number, x: number, y: number): Promise<void> => {
@@ -257,9 +290,31 @@ if (!gotLock) {
     openFileFromOutside(path)
   })
 
+  /* macOS delivers links as an event, and on a cold launch it can fire
+   * before 'ready' — which is why this listener sits at the top level. */
+  app.on('open-url', (e, url) => {
+    e.preventDefault()
+    openLink(url)
+  })
+
+  /* Claim the scheme. The packaged app also declares it in Info.plist
+   * (electron-builder.yml `protocols`). From source, Windows and Linux need
+   * the executable plus the app dir to relaunch the dev build; macOS ignores
+   * both and registers the running bundle (Electron.app in dev) — whichever
+   * Foolscap launched last owns the scheme. */
+  if (process.defaultApp) {
+    app.setAsDefaultProtocolClient(LINK_SCHEME, process.execPath, [app.getAppPath()])
+  } else {
+    app.setAsDefaultProtocolClient(LINK_SCHEME)
+  }
+
   app.on('second-instance', (_e, argv, cwd) => {
     const paths = pathsFromArgv(argv, cwd, argvFilter())
+    // Windows and Linux relay links as arguments to the running instance.
+    const links = argv.filter(isOpenLink)
     console.log(`[foolscap] second-instance: ${paths.length ? paths.join(', ') : '(no paths)'}`)
+    for (const link of links) openLink(link)
+    if (links.length > 0 && paths.length === 0) return
     if (paths.length === 0) {
       const focused = focusedSession() ?? [...sessions.values()][0]
       if (focused) focused.focus()
@@ -309,6 +364,17 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     for (const path of pathsFromArgv(process.argv, process.cwd(), argvFilter())) {
       pendingOpens.push(path)
+    }
+    // Links from a Windows/Linux first launch join any that macOS delivered
+    // early; good ones become launch arguments, bad ones toast once a
+    // window exists.
+    pendingLinks.push(...process.argv.filter(isOpenLink))
+    const linkErrors: string[] = []
+    for (const raw of pendingLinks.splice(0)) {
+      const result = parseOpenLink(raw, isFile)
+      console.log(`[foolscap] link: ${result.ok ? result.path : result.error}`)
+      if (result.ok) pendingOpens.push(result.path)
+      else linkErrors.push(result.error)
     }
     installContentsGuards()
     registerIpc((wcId) => sessions.get(wcId) ?? null, actions, detachTab)
@@ -360,6 +426,7 @@ if (!gotLock) {
     }
     pendingOpens.length = 0
     if (sessions.size === 0) boot()
+    for (const error of linkErrors) toastSomewhere(error)
 
     app.on('activate', () => {
       if (sessions.size === 0) boot()

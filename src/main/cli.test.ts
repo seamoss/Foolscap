@@ -45,4 +45,10 @@ describe('pathsFromArgv', () => {
       pathsFromArgv(['/bin/electron', '.', '/abs/doc.md', 'rel/doc.md'], '/proj', filter(['/proj']))
     ).toEqual(['/abs/doc.md', '/proj/rel/doc.md'])
   })
+
+  it('leaves foolscap:// links out (Windows/Linux relay them as argv)', () => {
+    expect(
+      pathsFromArgv(['C:\\Foolscap.exe', 'foolscap://open?path=%2Fa%2Fb.md'], '/home/u', filter([]))
+    ).toEqual([])
+  })
 })
