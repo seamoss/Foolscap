@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bestCoveringIndex, nearestSpanIndex, sourceOffsetAt } from './preview'
+import { bestCoveringIndex, nearestSpanIndex, sourceOffsetAt, sourceOffsetNear } from './preview'
 
 describe('bestCoveringIndex', () => {
   it('picks the largest stamp at or below the target', () => {
@@ -108,5 +108,40 @@ describe('sourceOffsetAt', () => {
     const src = 'plain winning text'
     const at = src.indexOf('winning') + 5
     expect(sourceOffsetAt(src, 0, src, at)).toBe(at)
+  })
+})
+
+describe('sourceOffsetNear', () => {
+  it('agrees with sourceOffsetAt on a word', () => {
+    const src = 'plain winning text'
+    const at = src.indexOf('winning') + 3
+    expect(sourceOffsetNear(src, 0, src, at)).toBe(at)
+  })
+
+  it('lands a click in the gap between words on the clicked character', () => {
+    // A code block's rendered text is its source, fence aside.
+    const src = '```\nCreate two  empty folders\n```'
+    const rendered = 'Create two  empty folders'
+    const gap = rendered.indexOf('  ') + 1
+    expect(sourceOffsetNear(src, 0, rendered, gap)).toBe(src.indexOf('  ') + 1)
+  })
+
+  it('lands on leading indentation by measuring back from the next word', () => {
+    const src = '```\nif x:\n    return y\n```'
+    const rendered = 'if x:\n    return y'
+    const at = rendered.indexOf('return') - 2
+    expect(sourceOffsetNear(src, 0, rendered, at)).toBe(src.indexOf('return') - 2)
+  })
+
+  it('stops at the neighbouring word when the source differs in between', () => {
+    // Rendered "alpha — beta" came from "alpha -- beta": past the space the
+    // gap is not copied verbatim, so the caret settles at the word's edge.
+    const src = 'alpha -- beta'
+    const rendered = 'alpha — beta'
+    expect(sourceOffsetNear(src, 0, rendered, rendered.indexOf('—') + 1)).toBe(src.indexOf('alpha') + 5)
+  })
+
+  it('returns null when the line holds no word at all', () => {
+    expect(sourceOffsetNear('— —', 0, '— —', 1)).toBeNull()
   })
 })

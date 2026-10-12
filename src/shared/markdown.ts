@@ -50,16 +50,37 @@ export function getHighlighter(): Promise<Highlighter> {
  * without pulling in @types/hast. */
 interface HastNode {
   type?: string
+  tagName?: string
   position?: { start?: { offset?: number } }
   properties?: Record<string, unknown>
   children?: HastNode[]
 }
 
+/* Every <pre> in document order. */
+function preElements(tree: HastNode): HastNode[] {
+  const found: HastNode[] = []
+  const walk = (node: HastNode): void => {
+    if (node.type === 'element' && node.tagName === 'pre') found.push(node)
+    for (const child of node.children ?? []) walk(child)
+  }
+  walk(tree)
+  return found
+}
+
+/* Code-block stamps ride across the highlighter on the file being
+ * processed, not in plugin state — the processor is shared, and renders
+ * overlap. */
+interface StampCarrier {
+  data: object
+}
+const codeStamps = (file: StampCarrier): { codeStamps?: unknown[] } =>
+  file.data as { codeStamps?: unknown[] }
+
 /* Stamp each element with its source offset (data-pos). Preview mode uses
  * this to map a double-click back into the editor; exports never enable it,
  * so their output stays byte-identical. */
 function rehypeSourcePositions() {
-  return (tree: HastNode): void => {
+  return (tree: HastNode, file: StampCarrier): void => {
     const walk = (node: HastNode): void => {
       if (node.type === 'element' && node.position?.start?.offset !== undefined) {
         node.properties = { ...node.properties, dataPos: String(node.position.start.offset) }
@@ -67,6 +88,21 @@ function rehypeSourcePositions() {
       for (const child of node.children ?? []) walk(child)
     }
     walk(tree)
+    codeStamps(file).codeStamps = preElements(tree).map((pre) => pre.properties?.['dataPos'])
+  }
+}
+
+/* Shiki swaps each <pre> it highlights for a fresh one, and the stamp goes
+ * with the old node — so a double-click in a code block found no position
+ * and dropped the editor at the top of the document. The swap is in place,
+ * one <pre> for one, so the stamps go back on in document order. */
+function rehypeRestoreCodeStamps() {
+  return (tree: HastNode, file: StampCarrier): void => {
+    const stamps = codeStamps(file).codeStamps ?? []
+    preElements(tree).forEach((pre, i) => {
+      const stamp = stamps[i]
+      if (stamp !== undefined) pre.properties = { ...pre.properties, dataPos: stamp }
+    })
   }
 }
 
@@ -110,15 +146,15 @@ async function buildProcessor(sourcePositions: boolean) {
     .use(remarkRehype)
     .use(rehypeSlug)
   const positioned = sourcePositions ? base.use(rehypeSourcePositions) : base
-  return positioned
-    .use(rehypeShikiFromHighlighter, highlighter, {
-      theme: shikiTheme,
-      defaultLanguage: 'text',
-      fallbackLanguage: 'text',
-      // Grammars load on demand per fence; unknown languages fall back.
-      lazy: true
-    })
-    .use(rehypeStringify)
+  const highlighted = positioned.use(rehypeShikiFromHighlighter, highlighter, {
+    theme: shikiTheme,
+    defaultLanguage: 'text',
+    fallbackLanguage: 'text',
+    // Grammars load on demand per fence; unknown languages fall back.
+    lazy: true
+  })
+  const restamped = sourcePositions ? highlighted.use(rehypeRestoreCodeStamps) : highlighted
+  return restamped.use(rehypeStringify)
 }
 
 const processors = new Map<string, ReturnType<typeof buildProcessor>>()

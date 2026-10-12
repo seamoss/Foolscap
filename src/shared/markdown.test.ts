@@ -70,6 +70,21 @@ describe('renderMarkdown — THE pipeline', () => {
     expect(html).toContain('data-pos="7"')
   })
 
+  it('sourcePositions stamps code blocks too, though Shiki rebuilds them', async () => {
+    // Plain, preloaded-on-demand, unknown, and nested-in-a-list fences: each
+    // highlighted <pre> keeps its own fence's offset, in document order.
+    const md = [
+      'intro', '', '```', 'plain fence', '```', '',
+      '```js', 'const a = 1', '```', '',
+      '```nosuchlang', 'x', '```', '',
+      '- item', '', '  ```py', '  y = 2', '  ```', ''
+    ].join('\n')
+    const html = await renderMarkdown(md, { sourcePositions: true })
+    const stamps = [...html.matchAll(/<pre\b[^>]*\bdata-pos="(\d+)"/g)].map((m) => Number(m[1]))
+    const fences = [md.indexOf('```\n'), md.indexOf('```js'), md.indexOf('```nosuchlang'), md.indexOf('```py')]
+    expect(stamps).toEqual(fences)
+  })
+
   it('default rendering carries no position stamps (exports stay clean)', async () => {
     const html = await renderMarkdown('# One\n\ntext here')
     expect(html).not.toContain('data-pos')

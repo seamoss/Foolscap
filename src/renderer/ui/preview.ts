@@ -65,6 +65,41 @@ export function sourceOffsetAt(
   return null
 }
 
+/* sourceOffsetAt, extended to clicks that touch no word: the gap between
+ * words, a code line's indentation. The nearest word on the clicked line is
+ * mapped instead, and the caret crosses back over the gap when the source
+ * holds the same characters there (a code block's do, verbatim); otherwise
+ * it settles at that word's edge. Null only for a line with no word. */
+export function sourceOffsetNear(
+  source: string,
+  blockPos: number,
+  renderedText: string,
+  renderedOffset: number
+): number | null {
+  const exact = sourceOffsetAt(source, blockPos, renderedText, renderedOffset)
+  if (exact !== null) return exact
+  const lineStart = renderedText.lastIndexOf('\n', renderedOffset - 1) + 1
+  const newline = renderedText.indexOf('\n', renderedOffset)
+  const lineEnd = newline === -1 ? renderedText.length : newline
+
+  let before = renderedOffset
+  while (before > lineStart && !isWordChar(renderedText[before - 1])) before--
+  const wordEnd = before > lineStart ? sourceOffsetAt(source, blockPos, renderedText, before) : null
+  if (wordEnd !== null) {
+    const gap = renderedText.slice(before, renderedOffset)
+    return source.startsWith(gap, wordEnd) ? wordEnd + gap.length : wordEnd
+  }
+
+  let after = renderedOffset
+  while (after < lineEnd && !isWordChar(renderedText[after])) after++
+  const wordStart = after < lineEnd ? sourceOffsetAt(source, blockPos, renderedText, after) : null
+  if (wordStart !== null) {
+    const gap = renderedText.slice(renderedOffset, after)
+    return source.slice(wordStart - gap.length, wordStart) === gap ? wordStart - gap.length : wordStart
+  }
+  return null
+}
+
 /* Caret position under a pointer event, constrained to an element.
  * caretPositionFromPoint is the standard; caretRangeFromPoint the WebKit
  * legacy — Chromium has both, but feature-detect anyway. */
@@ -181,7 +216,9 @@ export class Preview {
 
     this.el.addEventListener('dblclick', (event) => {
       const target = event.target instanceof Element ? event.target : null
-      const holder = target?.closest<HTMLElement>('[data-pos]')
+      // Off any stamped element — the margin, the gap between blocks — the
+      // nearest block stands in, so the page still holds still.
+      const holder = target?.closest<HTMLElement>('[data-pos]') ?? this.stampedNearest(event.clientY)?.el
       if (!holder) {
         this.onEdit(0)
         return
@@ -195,7 +232,7 @@ export class Preview {
       const refined =
         caret === null
           ? null
-          : sourceOffsetAt(
+          : sourceOffsetNear(
               this.markdown,
               blockPos,
               holder.textContent ?? '',
@@ -296,16 +333,21 @@ export class Preview {
    * Read before hide(): a hidden pane has no geometry. */
   visibleAnchor(): { pos: number; top: number } | null {
     const center = this.el.getBoundingClientRect().top + this.el.clientHeight / 2
+    const nearest = this.stampedNearest(center)
+    return nearest ? { pos: Number(nearest.el.dataset['pos']), top: nearest.top } : null
+  }
+
+  /* The stamped element covering (or nearest to) a viewport height. */
+  private stampedNearest(y: number): { el: HTMLElement; top: number } | null {
     const candidates = [...this.el.querySelectorAll<HTMLElement>('[data-pos]')]
     const rects = candidates.map((c) => c.getBoundingClientRect())
     const best = nearestSpanIndex(
       rects.map((r) => ({ top: r.top, bottom: r.bottom })),
-      center
+      y
     )
     const el = candidates[best]
     const rect = rects[best]
-    if (!el || !rect) return null
-    return { pos: Number(el.dataset['pos']), top: rect.top }
+    return el && rect ? { el, top: rect.top } : null
   }
 
   /* ---- table columns: proportioned by the model, draggable at edges ---- */
