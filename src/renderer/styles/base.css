@@ -570,6 +570,10 @@ body {
   border-radius: var(--radius-ui);
   padding: 0.8em 1em;
   overflow-x: auto;
+  /* Long lines wrap: a prompt reads whole instead of hiding behind a
+   * scrollbar. Preview only — exports keep export.css's rules. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .preview-doc pre code {
@@ -579,6 +583,52 @@ body {
 
 .preview-doc pre.shiki {
   background: var(--paper-sunk) !important;
+}
+
+/* Every code block carries a copy button in its top-right corner, always
+ * shown. The block's right padding reserves the button's column, so text
+ * wraps before it and never runs underneath. */
+.preview-doc .code-block {
+  position: relative;
+}
+
+.preview-doc .code-block pre {
+  padding-right: calc(var(--code-copy-size) + 2 * var(--code-copy-inset));
+}
+
+.code-copy {
+  position: absolute;
+  top: var(--code-copy-inset);
+  right: var(--code-copy-inset);
+  width: var(--code-copy-size);
+  height: var(--code-copy-size);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--ink-ghost);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-inline);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color var(--dur-mark) var(--ease-mark),
+    border-color var(--dur-mark) var(--ease-mark);
+}
+
+.code-copy:hover {
+  color: var(--accent);
+  border-color: var(--rule);
+  background: var(--paper);
+}
+
+.code-copy.copied {
+  color: var(--accent);
+}
+
+.code-copy svg {
+  width: 55%;
+  height: 55%;
 }
 
 .preview-doc blockquote {

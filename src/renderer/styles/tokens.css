@@ -86,6 +86,10 @@
   /* Floating chrome (table chip bar): window-edge clamp and gap above. */
   --edge-inset: 8px;
   --table-bar-gap: 6px;
+  /* Copy button on preview code blocks: its square, and its inset from the
+   * block's top-right corner. The block's text keeps clear of both. */
+  --code-copy-size: 1.75rem;
+  --code-copy-inset: 0.4rem;
 
   /* ---- Selection ----
    * Translucent, because the selection layer paints above the content: it
@@ -103,6 +107,7 @@
   --dur-wordcount-peek: 2000ms; /* §4.4: visible this long after mouse move */
   --dur-table-bar-hide: 350ms; /* grace period to reach the chip bar */
   --dur-fence-idle: 150ms; /* typing pause before a fence retokenizes */
+  --dur-copied: 1500ms; /* a code block's copy button shows its check */
 
   /* ---- Shiki code tokens, from the same palette (§3: theme-bound) ----
    * These are the css-variables theme's hooks; because they reference the

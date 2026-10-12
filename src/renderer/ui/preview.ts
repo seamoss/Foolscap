@@ -8,6 +8,7 @@ import {
   tableSourceAt
 } from '../editor/table-model'
 import { renderMarkdown } from '../../shared/markdown'
+import { tokenMs } from './tokens'
 
 /* Index of the stamp best covering pos: the largest one <= pos. DOM order is
  * not source order — remark-rehype hoists footnote definitions to the end of
@@ -100,6 +101,63 @@ function caretLineTop(caret: { node: Node; offset: number }): number | null {
   range.setEnd(caret.node, caret.offset)
   const rect = range.getClientRects()[0]
   return rect !== undefined && rect.height > 0 ? rect.top : null
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+/* One stroke style for both faces of the copy button: two overlapping
+ * sheets, and the check that stands in for them after a copy. */
+const COPY_ICON = ['M5.5 5.5h7a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z', 'M2.5 10.5v-7a1 1 0 0 1 1-1h7']
+const CHECK_ICON = ['M3 8.5l3 3 7-7']
+
+function icon(paths: readonly string[]): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 16 16')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '1.5')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  svg.setAttribute('aria-hidden', 'true')
+  for (const d of paths) {
+    const path = document.createElementNS(SVG_NS, 'path')
+    path.setAttribute('d', d)
+    svg.append(path)
+  }
+  return svg
+}
+
+/* A code block's copy button: puts the block's text on the clipboard and
+ * shows a check for a moment. It keeps focus on the pane (keyboard
+ * scrolling lives there), and a double-click on it copies twice rather than
+ * dropping into the editor. */
+function copyButton(text: () => string): HTMLButtonElement {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'code-copy'
+  button.title = 'Copy'
+  button.setAttribute('aria-label', 'Copy code')
+  button.append(icon(COPY_ICON))
+  let reset: number | undefined
+  button.addEventListener('mousedown', (event) => event.preventDefault())
+  button.addEventListener('dblclick', (event) => event.stopPropagation())
+  button.addEventListener('click', (event) => {
+    event.stopPropagation()
+    navigator.clipboard.writeText(text()).then(
+      () => {
+        button.classList.add('copied')
+        button.setAttribute('aria-label', 'Copied')
+        button.replaceChildren(icon(CHECK_ICON))
+        window.clearTimeout(reset)
+        reset = window.setTimeout(() => {
+          button.classList.remove('copied')
+          button.setAttribute('aria-label', 'Copy code')
+          button.replaceChildren(icon(COPY_ICON))
+        }, tokenMs('--dur-copied'))
+      },
+      (err: unknown) => console.error('code block copy failed', err)
+    )
+  })
+  return button
 }
 
 /* Index of the span covering (or nearest to) a target line. Ties go to the
@@ -270,6 +328,22 @@ export class Preview {
       else img.removeAttribute('src')
     }
     this.sizeTables()
+    this.addCopyButtons()
+  }
+
+  /* Every code block gets a copy button. It sits beside the <pre> in a
+   * wrapper, not inside it, so the block's text stays exactly the code (a
+   * double-click maps that text back to the source) and the button holds
+   * its corner. Preview only: exports render without it. */
+  private addCopyButtons(): void {
+    for (const pre of this.el.querySelectorAll('pre')) {
+      const code = pre.querySelector('code')
+      if (!code) continue
+      const block = document.createElement('div')
+      block.className = 'code-block'
+      pre.replaceWith(block)
+      block.append(pre, copyButton(() => code.textContent ?? ''))
+    }
   }
 
   /* Scroll the rendered pane to the element covering a source position —

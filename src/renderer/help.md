@@ -50,7 +50,8 @@ Everything lives in the command palette — press `⌘K` and type.
 
 Opening an existing file lands in **preview** — the rendered page.
 Double-click anywhere to drop into the editor exactly there. `⌘E` or
-`Escape` flips back and forth.
+`Escape` flips back and forth. Every code block carries a copy button in
+its corner, and long lines wrap so a whole prompt is in view.
 
 ## Writing
 
