@@ -1,115 +1,21 @@
-# Foolscap
+# Foolscap (native)
 
-A markdown editor. Free, open source, file-first, and unreasonably well-typeset.
-
-[![CI](https://github.com/seamoss/Foolscap/actions/workflows/ci.yml/badge.svg)](https://github.com/seamoss/Foolscap/actions/workflows/ci.yml)
-
-![Editing in Foolscap — syntax marks recede instead of hiding](docs/editing.png)
-
-That's the editor, mid-edit, in the Plate theme. The `##` and `**` haven't
-vanished — they've **receded**: still legible, still telling you what the
-structure is, ready to breathe back up when your cursor arrives. The table
-is a real grid you edit in place; the file underneath it is tidy pipes,
-aligned in the file itself, not just on screen.
-
-Foolscap is a single beautiful writing surface for markdown files. The buffer is plain markdown text at all times — live preview is decorations over that text, never a document model — so the file on disk is always exactly what you wrote. What you see in the editor is what HTML and PDF export produce, because one pipeline drives all three:
-
-![The same document, previewed](docs/preview.png)
-
-## What it does
-
-- Files open where you left them; ⇧⌘T reopens a closed tab; drop an image from Finder or paste a URL over a selection and the markdown writes itself
-- Live preview of every markdown construct: headings (Fraunces, real optical sizing), emphasis, lists with hanging indents and real bullets, links (Cmd-click to open), Shiki-highlighted code fences, inline images, blockquotes, rules, clickable task-list checkboxes, and tables that render as a real grid and edit in place (click a cell and type; ⌥-click for the pipe source with its normalizing formatter, drag-to-resize columns, and hover column controls)
-- Atomic saves — temp file, fsync, rename; a crash can never truncate your manuscript
-- Autosave with a browsable version history (File ▸ Browse Versions…), restores that ⌘Z undoes, and an undo stack that survives relaunch
-- External-change watching: clean buffers reload silently, dirty buffers get a choice
-- Command palette (⌘K) with recent files a keystroke away, find & replace, outline panel, typewriter and focus modes, optional line numbers, a word count that counts the selection
-- Seven themes — from the house Ledger and Plate to GitHub, Vercel, and VS Code — plus load-your-own-CSS custom themes ([THEMING.md](THEMING.md))
-- Ten writing faces, five serif and five sans; one font per page, and code keeps [Ioskeley Mono](https://github.com/ahatem/IoskeleyMono)
-- Paste images from the clipboard, or drop them from Finder, into a sibling `assets/` folder
-- Tabs and windows — drag a tab out and it becomes a window — with full session restore: `⌘Q` quits silently and the next launch sets the desk back up, unsaved drafts included
-- Self-contained HTML export and typeset PDF export with the editor's real fonts — pretty-wrapped, hyphenated, headings balanced
-- Signed, notarized, and self-updating; checks for updates from the Help menu or Settings
-
-## Out of scope
-
-Deliberately, and permanently for v1 — please don't file issues asking for:
-
-- Vaults, workspaces, or folder-as-database concepts. Files are files.
-- Sync, cloud, accounts, telemetry.
-- Graph view, backlinks, wiki-links, tags.
-- A plugin API. (Themes are not plugins; themes are in.)
-- Collaborative editing.
-- Mobile.
-- AI features. There are forty of those. This one is about writing.
-- Diagram rendering (Mermaid et al.). Fences show their source, beautifully — decided and closed.
-
-## Platform
-
-Foolscap is a **macOS app**. The Windows and Linux packaging config exists
-and may even work, but nobody here runs it — it is untested and unsupported
-for now.
-
-## Install
-
-Grab the DMG from [Releases](https://github.com/seamoss/Foolscap/releases) —
-`arm64` for Apple Silicon, plain for Intel. Since **0.6.1**, builds are
-signed and notarized: drag to Applications and open like anything else.
-Since **0.7.0**, updates take care of themselves: Foolscap downloads new
-versions quietly, mentions it once in a toast when one is ready, and
-installs on restart — or on whatever quit comes naturally.
-
-(Releases before 0.6.1 were unsigned — if macOS grumbles about an old
-download, just grab a current one.)
-
-**Two editions, one version.** The DMG above is the *direct* edition: it
-updates itself. The Mac App Store edition is the same version number and
-the same code, minus every trace of self-updating — the Store delivers its
-updates, and App Review requires that apps not add checks of their own.
-The Store edition is marked `-mas` wherever Apple lets us mark it: About
-Foolscap reads "0.16.0-mas (App Store)" there and "0.16.0 (Direct download)"
-here, the package is `Foolscap-0.16.0-mas-universal.pkg`, and each Store
-submission is tagged `v0.16.0-mas.1` (the bundle's own version string must
-stay plain digits, Apple's rule, so it is the same `0.16.0` in both).
-
-## Opening files by link
-
-Other apps and web pages can open a document in Foolscap with a link:
-
-```
-foolscap://open?path=<URL-encoded absolute path>
-foolscap://open?path=%2FUsers%2Fyou%2Fnotes%2Fbrief.md
-```
-
-The path must be absolute and point at an existing `.md`, `.markdown`, or
-`.txt` file; anything else shows a short error and opens nothing. A file
-that's already open gets its tab brought forward instead of a second copy.
-From a terminal:
-
-```
-open "foolscap://open?path=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=""))' /absolute/path/to/some.md)"
-```
-
-macOS learns the scheme the first time Foolscap launches. Browsers ask
-before handing a link to an app; Chrome can remember the answer.
-
-## Testing
-
-Three layers, and [docs/adr/0001-testing.md](docs/adr/0001-testing.md)
-says which one a change needs: `pnpm test` (vitest, with coverage floors
-under `pnpm test:coverage`), the golden fixtures in `fixtures/`, and
-`pnpm e2e`, which drives the built app through real input events.
+The Swift/AppKit port of [Foolscap](https://github.com/seamoss/Foolscap),
+a markdown editor for macOS: free, open source, file-first, and
+unreasonably well-typeset. The Electron app keeps shipping until this one
+reaches parity; PLAN.md has the phases.
 
 ## Building
 
 ```
-pnpm install
-pnpm dev        # run in development
-pnpm test       # vitest
-pnpm typecheck
-pnpm pack:app   # unsigned local app build (dist/)
-pnpm dist       # full installers
+brew install xcodegen
+make project   # generates Foolscap.xcodeproj (not committed)
+make run
+make test      # unit tests + golden fixtures
+make uitest    # XCUITest smoke suite
 ```
+
+Requires Xcode 26 and macOS 14 or later.
 
 ## License
 

@@ -1,11 +1,10 @@
-<h1 id="every-construct">Every Construct</h1>
+<h1>Every Construct</h1>
 <p>A paragraph with <strong>bold</strong>, <em>italic</em>, <del>struck</del>, and <code>inline code</code>.</p>
-<h1 id="setext-heading">Setext Heading</h1>
-<h2 id="lists">Lists</h2>
+<h1>Setext Heading</h1>
+<h2>Lists</h2>
 <ul>
 <li>one</li>
-<li>two, with a much longer line that would wrap in the editor measure
-<ul>
+<li>two, with a much longer line that would wrap in the editor measure<ul>
 <li>nested</li>
 </ul>
 </li>
@@ -15,23 +14,25 @@
 <li>first</li>
 <li>second</li>
 </ol>
-<ul class="contains-task-list">
-<li class="task-list-item"><input type="checkbox" disabled> an open task</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> a done task</li>
+<ul>
+<li><input type="checkbox" disabled> an open task</li>
+<li><input type="checkbox" disabled checked> a done task</li>
 </ul>
-<h2 id="links-and-images">Links and images</h2>
+<h2>Links and images</h2>
 <p>An <a href="https://example.com/a?b=c">inline link</a> and a bare <a href="https://example.com">https://example.com</a>.</p>
 <p><img src="assets/chart.png" alt="a chart"></p>
 <blockquote>
 <p>A quote,
 across two lines.</p>
 </blockquote>
-<h2 id="code">Code</h2>
-<pre class="shiki foolscap-vars" style="background-color:var(--shiki-background);color:var(--shiki-foreground)" tabindex="0"><code><span class="line"><span style="color:var(--shiki-token-comment)">// comment</span></span>
-<span class="line"><span style="color:var(--shiki-token-keyword)">const</span><span style="color:var(--shiki-token-constant)"> x</span><span style="color:var(--shiki-token-keyword)"> =</span><span style="color:var(--shiki-foreground)"> { a</span><span style="color:var(--shiki-token-keyword)">:</span><span style="color:var(--shiki-token-constant)"> 1</span><span style="color:var(--shiki-foreground)"> }</span></span></code></pre>
-<pre class="shiki foolscap-vars" style="background-color:var(--shiki-background);color:var(--shiki-foreground)" tabindex="0"><code><span class="line"><span>plain fence, no language</span></span></code></pre>
+<h2>Code</h2>
+<pre><code class="language-js"><span class="tok-comment">// comment</span>
+<span class="tok-keyword">const</span> x = { a: <span class="tok-number">1</span> }
+</code></pre>
+<pre><code>plain fence, no language
+</code></pre>
 <hr>
-<h2 id="table">Table</h2>
+<h2>Table</h2>
 <table>
 <thead>
 <tr>
@@ -46,11 +47,9 @@ across two lines.</p>
 </tr>
 </tbody>
 </table>
-<p>A footnote reference<sup><a href="#user-content-fn-1" id="user-content-fnref-1" data-footnote-ref aria-describedby="footnote-label">1</a></sup>.</p>
-<section data-footnotes class="footnotes"><h2 class="sr-only" id="footnote-label">Footnotes</h2>
+<p>A footnote reference<sup class="fnref" id="fnref-1"><a href="#fn-1">1</a></sup>.</p>
+<section class="footnotes">
 <ol>
-<li id="user-content-fn-1">
-<p>And its definition. <a href="#user-content-fnref-1" data-footnote-backref="" aria-label="Back to reference 1" class="data-footnote-backref">↩</a></p>
-</li>
+<li id="fn-1"><p>And its definition. <a class="fnback" href="#fnref-1">↩</a></p></li>
 </ol>
 </section>

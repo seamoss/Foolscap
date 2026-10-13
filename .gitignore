@@ -1,9 +1,7 @@
-node_modules/
-out/
-dist/
-*.log
+*.xcodeproj/
+DerivedData/
+build/
+.build/
 .DS_Store
-PLAYGROUND.md
-assets/
 *.provisionprofile
-coverage/
+xcuserdata/
