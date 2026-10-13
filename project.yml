@@ -26,6 +26,9 @@ settings:
       # Release only: notarization requires it; test bundles can't inject
       # into a hardened host, so Debug stays plain.
       ENABLE_HARDENED_RUNTIME: YES
+      # xcodebuild build (not archive) injects get-task-allow, which
+      # notarization rejects.
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 packages:
   Markdown:
     url: https://github.com/swiftlang/swift-markdown.git

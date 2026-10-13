@@ -21,7 +21,13 @@ cp -R "$APP" "$STAGE/" && ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Foolscap ${VERSION}" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 codesign --sign "Developer ID Application: SEANAN MC CULLOUGH (4J2T5H73JM)" --timestamp "$DMG"
 echo "release: notarizing"
-xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait 2>&1 | grep -E "status:|id:" | head -3
+NOTARY=$(xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait 2>&1)
+echo "$NOTARY" | grep -E "^\s*(id|status):" | sort -u
+if ! echo "$NOTARY" | grep -q "status: Accepted"; then
+  ID=$(echo "$NOTARY" | grep -E "^\s*id:" | head -1 | awk '{print $2}')
+  echo "release: notarization failed — xcrun notarytool log $ID --keychain-profile $PROFILE"
+  exit 1
+fi
 xcrun stapler staple "$DMG" >/dev/null && echo "release: stapled"
 spctl -a -t open --context context:primary-signature -v "$DMG" 2>&1 | tail -1
 du -h "$DMG" | cut -f1 | sed 's/^/release: /'
